@@ -1,3 +1,5 @@
+import habana_frameworks.torch.gpu_migration
+import habana_frameworks.torch.core as htcore
 import time
 import os
 
@@ -284,7 +286,9 @@ def finetune(args, tokenizer: AutoTokenizer, model: deepspeed.DeepSpeedEngine, o
                 loss = lm_loss
                 
             model.backward(loss)
+            htcore.mark_step()
             model.step()
+            htcore.mark_step()
             
             dist.all_reduce(loss, dist.ReduceOp.SUM, group=dp_group)
             global_loss = loss.item() / dp_world_size
@@ -426,6 +430,7 @@ def evaluate(args, tokenizer, model, dataset: LMTrainDataset, split, epoch, devi
                 loss = (lm_losses * loss_mask).sum(-1) / loss_mask.sum(-1)
             else:
                 loss = loss_func(logits.view(-1, logits.shape[-1]), no_model_batch["label"].view(-1))
+            htcore.mark_step()
             
             max_new_tokens = args.max_length - gen_data["input_ids"].size(1)
             
