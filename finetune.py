@@ -141,6 +141,9 @@ def setup_model_and_optimizer(args, ds_config, device, set_optim=True):
         ds_config['bf16']=copy.deepcopy(ds_config['fp16'])
         ds_config['fp16']['enabled']=False
     
+    if dist.get_rank() == 0:
+        import pdb
+        pdb.set_trace()
     
     model, optimizer, _, lr_scheduler = deepspeed.initialize(
         model=model,
