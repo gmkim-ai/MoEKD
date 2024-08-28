@@ -150,10 +150,6 @@ def setup_model_and_optimizer(args, ds_config, device, set_optim=True):
         mpu=mpu if args.model_parallel else None,
         config_params=ds_config
     )
-    if dist.get_rank() == 0:
-        import pdb
-        pdb.set_trace()
-
     
     # get the memory usage
     print_rank("Model mem\n", torch.cuda.memory_summary())
