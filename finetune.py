@@ -1,4 +1,3 @@
-import habana_frameworks.torch.gpu_migration
 import habana_frameworks.torch.core as htcore
 import time
 import os
