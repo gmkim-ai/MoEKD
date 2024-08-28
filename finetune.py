@@ -511,7 +511,7 @@ def main():
             json.dump(vars(args), f)
     
     device = torch.cuda.current_device()
-    device = torch.device("hpu")
+    #device = torch.device("hpu")
     cur_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
     save_rank("\n\n" + "="*30 + f" EXP at {cur_time} " + "="*30, os.path.join(args.save, "log.txt"))
     
