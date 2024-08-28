@@ -87,7 +87,7 @@ export WANDB_DISABLED=True
 export TF_CPP_MIN_LOG_LEVEL=3
 export PYTHONPATH=${BASE_PATH}
 export PT_HPU_LAZY_MODE=0
-OPTS+=" --use_lazy_mode=False"
+# OPTS+=" --use_lazy_mode=False"
 CMD="torchrun ${DISTRIBUTED_ARGS} ${BASE_PATH}/finetune.py ${OPTS} $@"
 
 echo ${CMD}
