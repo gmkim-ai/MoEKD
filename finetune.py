@@ -269,9 +269,6 @@ def finetune(args, tokenizer: AutoTokenizer, model: deepspeed.DeepSpeedEngine, o
             torch.cuda.synchronize()
             st_time = time.time()
 
-            if dist.get_rank() == 0:
-                import pdb
-                pdb.set_trace()
                 
             # if it == 0 and dist.get_rank() == 0:
             #     torch.save((model_batch, no_model_batch), os.path.join(args.save, "examples.pt"))
