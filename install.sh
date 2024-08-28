@@ -1,4 +1,6 @@
 export NCCL_DEBUG=""
+pip install optimum[habana]
+pip install git+https://github.com/HabanaAI/DeepSpeed.git@1.17.0
 pip3 install -e transformers/
 # pip3 install torch==2.0.1
 pip3 install deepspeed==0.10.0
