@@ -100,7 +100,7 @@ def init_distributed(args):
         device = args.local_rank
     torch.cuda.set_device(device)
 
-    dist.init_process_group(backend="nccl", timeout=timedelta(minutes=300))
+    dist.init_process_group(backend="hccl", timeout=timedelta(minutes=300))
 
 
 def init_distributed_ds(args):

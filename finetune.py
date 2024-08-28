@@ -140,6 +140,8 @@ def setup_model_and_optimizer(args, ds_config, device, set_optim=True):
         import copy
         ds_config['bf16']=copy.deepcopy(ds_config['fp16'])
         ds_config['fp16']['enabled']=False
+    
+    
     model, optimizer, _, lr_scheduler = deepspeed.initialize(
         model=model,
         optimizer=optimizer,
@@ -512,6 +514,7 @@ def main():
             json.dump(vars(args), f)
     
     device = torch.cuda.current_device()
+    print("CURRENT DEVICES: ", device)
     #device = torch.device("hpu")
     cur_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
     save_rank("\n\n" + "="*30 + f" EXP at {cur_time} " + "="*30, os.path.join(args.save, "log.txt"))
