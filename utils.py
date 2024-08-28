@@ -320,7 +320,7 @@ def get_model(args, device):
             dtype = torch.float32 if args.fp32 else torch.bfloat16
         if args.model_type=="moe":
             from llama_moe.modeling_llama_moe_hf import LlamaMoEForCausalLM
-            model = LlamaMoEForCausalLM.from_pretrained(args.model_path, torch_dtype=torch.bfloat16)
+            model = LlamaMoEForCausalLM.from_pretrained(args.model_path, torch_dtype=torch.bfloat16, device_map={"": device})
         else:
             model = AutoModelForCausalLM.from_pretrained(args.model_path, config=config, device_map={"": device}, torch_dtype=dtype)
 
