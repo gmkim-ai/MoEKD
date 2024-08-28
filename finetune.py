@@ -95,6 +95,10 @@ def get_optimizer(args, model):
         param_groups = get_optimizer_params_peft(args, model)
     else:
         param_groups = get_optimizer_params(args, model)
+    
+    if dist.get_rank() == 0:
+        import pdb
+        pdb.set_trace()
 
     # Use AdamW.
     optimizer = AdamW(param_groups, lr=args.lr, weight_decay=args.weight_decay)
@@ -514,7 +518,6 @@ def main():
             json.dump(vars(args), f)
     
     device = torch.cuda.current_device()
-    print("CURRENT DEVICES: ", device)
     #device = torch.device("hpu")
     cur_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
     save_rank("\n\n" + "="*30 + f" EXP at {cur_time} " + "="*30, os.path.join(args.save, "log.txt"))
