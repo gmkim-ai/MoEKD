@@ -489,6 +489,10 @@ class TopKBalancedNoisyGate(nn.Module):
         if self.training and self.add_noise:
             noise_mm = self.weight_noise(x)
             noise_control = self.softplus(noise_mm) + self.noise_epsilon
+            import torch.distributed as dist
+            if dist.get_rank() == 0:
+                import pdb
+                pdb.set_trace()
             logits_noise = torch.randn_like(logits_gate) * noise_control
             logits = logits_gate + logits_noise
         else:
