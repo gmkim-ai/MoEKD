@@ -1,4 +1,4 @@
-#import habana_frameworks.torch.gpu_migration
+import habana_frameworks.torch.gpu_migration
 import habana_frameworks.torch.core as htcore
 import time
 import os
@@ -510,7 +510,7 @@ def main():
         with open(os.path.join(args.save, "args.json"), "w") as f:
             json.dump(vars(args), f)
     
-    #device = torch.cuda.current_device()
+    device = torch.cuda.current_device()
     device = torch.device("hpu")
     cur_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
     save_rank("\n\n" + "="*30 + f" EXP at {cur_time} " + "="*30, os.path.join(args.save, "log.txt"))
