@@ -1,4 +1,6 @@
+import habana_frameworks.torch.gpu_migration
 import habana_frameworks.torch.core as htcore
+
 import time
 import os
 
@@ -138,14 +140,14 @@ def setup_model_and_optimizer(args, ds_config, device, set_optim=True):
         import copy
         ds_config['bf16']=copy.deepcopy(ds_config['fp16'])
         ds_config['fp16']['enabled']=False
-    # model, optimizer, _, lr_scheduler = deepspeed.initialize(
-    #     model=model,
-    #     optimizer=optimizer,
-    #     args=args,
-    #     lr_scheduler=lr_scheduler,
-    #     mpu=mpu if args.model_parallel else None,
-    #     config_params=ds_config
-    # )
+    model, optimizer, _, lr_scheduler = deepspeed.initialize(
+        model=model,
+        optimizer=optimizer,
+        args=args,
+        lr_scheduler=lr_scheduler,
+        mpu=mpu if args.model_parallel else None,
+        config_params=ds_config
+    )
     
     # get the memory usage
     print_rank("Model mem\n", torch.cuda.memory_summary())

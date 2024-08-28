@@ -110,8 +110,6 @@ def init_distributed_ds(args):
 
     if args.rank == 0:
         print(f"using world size: {args.world_size}")
-    import pdb
-    pdb.set_trace()
 
     # Manually set the device ids.
     device = args.rank % torch.cuda.device_count()
@@ -119,7 +117,8 @@ def init_distributed_ds(args):
         device = args.local_rank
     torch.cuda.set_device(device)
 
-    deepspeed.init_distributed(timeout=timedelta(minutes=300))
+    #deepspeed.init_distributed(timeout=timedelta(minutes=300))
+    deepspeed.init_distributed(dist_backend='hccl', timeout=timedelta(minutes=300))
 
 
 def initialize(args):

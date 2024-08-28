@@ -22,5 +22,11 @@
         "loss_scale_window": 5000,
         "hysteresis": 4
     },
-    "wall_clock_breakdown": false
+    "wall_clock_breakdown": false,
+    "timers": {
+        "throughput": {
+            "enabled": true,
+            "synchronized": false
+        }
+    }
 }
