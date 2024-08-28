@@ -44,7 +44,7 @@ OPTS+=" --model-type moe"
 # data
 OPTS+=" --data-dir ${DATA_DIR}"
 OPTS+=" --num-workers 0"
-OPTS+=" --dev-num 16"
+OPTS+=" --dev-num -1"
 # hp
 OPTS+=" --lr ${LR}"
 OPTS+=" --batch-size ${BATCH_SIZE}"
