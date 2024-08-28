@@ -512,6 +512,10 @@ class TopKBalancedNoisyGate(nn.Module):
                 threshold_positions_if_out = threshold_positions_if_in - 1
                 threshold_if_out = torch.unsqueeze(torch.gather(top_values_flat, 0, threshold_positions_if_out), 1)
                 # is each value currently in the top k.
+                import torch.distributed as dist
+                if dist.get_rank() == 0:
+                    import pdb
+                    pdb.set_trace()
                 prob_if_in = self.normal.cdf((logits_gate - threshold_if_in) / noise_control)
                 prob_if_out = self.normal.cdf((logits_gate - threshold_if_out) / noise_control)
                 prob = torch.where(is_in, prob_if_in, prob_if_out)
