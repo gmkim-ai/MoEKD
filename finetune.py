@@ -422,6 +422,8 @@ def evaluate(args, tokenizer, model, dataset: LMTrainDataset, split, epoch, devi
             #     dist.barrier()
             print_rank(f"{it}/{len(dataloader)}")
             dataset.move_to_device(model_batch, no_model_batch, gen_data, device)
+            import pdb
+            pdb.set_trace()
             logits = model(**model_batch).logits
             if args.model_parallel:
                 lm_losses = loss_func(logits.contiguous().float(), no_model_batch["label"]).view(-1)
