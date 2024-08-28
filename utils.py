@@ -324,7 +324,8 @@ def get_model(args, device):
             model = LlamaMoEForCausalLM.from_pretrained(args.model_path, torch_dtype=torch.bfloat16)
             model.to(device)
         else:
-            model = AutoModelForCausalLM.from_pretrained(args.model_path, config=config, device_map={"": device}, torch_dtype=dtype)
+            model = AutoModelForCausalLM.from_pretrained(args.model_path, config=config, torch_dtype=dtype)
+            model.to(device)
 
         if args.peft is not None:
             if args.peft == "lora":
