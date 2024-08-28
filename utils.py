@@ -364,6 +364,8 @@ def get_optimizer_params(args, model: nn.Module):
         {'params': [p for n, p in param_optimizer
                     if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}
     ]
+    if len(optimizer_grouped_parameters[1]['params']) == 0:
+        del optimizer_grouped_parameters[1]
 
     return optimizer_grouped_parameters
 
