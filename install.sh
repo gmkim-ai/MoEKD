@@ -1,8 +1,8 @@
 export NCCL_DEBUG=""
 pip3 install -e transformers/
-pip3 install torch==2.0.1
+# pip3 install torch==2.0.1
 pip3 install deepspeed==0.10.0
-pip3 install torchvision==0.15.2
+# pip3 install torchvision==0.15.2
 pip3 install nltk
 pip3 install numerize
 pip3 install rouge-score
