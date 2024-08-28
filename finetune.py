@@ -233,8 +233,6 @@ def get_teacher_lm_loss(args, tokenizer, model, teacher_model, model_batch):
 
 def finetune(args, tokenizer: AutoTokenizer, model: deepspeed.DeepSpeedEngine, optimizer: AdamW, lr_scheduler, dataset, device, teacher_model=None):
     print_rank("Start Fine-tuning")
-    import pdb
-    pdb.set_trace()
     #model = torch.compile(model,backend="hpu_backend")
 
     # print_inspect(model, '*')
@@ -257,7 +255,7 @@ def finetune(args, tokenizer: AutoTokenizer, model: deepspeed.DeepSpeedEngine, o
     total_loss, total_distil_loss, total_time = 0.0, 0.0, 0.0
     best_eval = 0.0
     
-    evaluate(args, tokenizer, model, dataset["dev"], "dev", 0, device)
+    #evaluate(args, tokenizer, model, dataset["dev"], "dev", 0, device)
     for epoch in range(args.epochs):
         sampler.set_epoch(epoch)
 
