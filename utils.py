@@ -110,6 +110,8 @@ def init_distributed_ds(args):
 
     if args.rank == 0:
         print(f"using world size: {args.world_size}")
+    import pdb
+    pdb.set_trace()
 
     # Manually set the device ids.
     device = args.rank % torch.cuda.device_count()
