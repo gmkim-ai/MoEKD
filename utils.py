@@ -297,8 +297,8 @@ def get_model(args, device):
     else:
         config = AutoConfig.from_pretrained(args.model_path)
     
+    import torch.distributed as dist
     if dist.get_rank() == 0:
-        import torch.distributed as dist
         import pdb
         pdb.set_trace()
 
