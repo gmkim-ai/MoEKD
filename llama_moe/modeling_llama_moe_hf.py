@@ -662,17 +662,19 @@ class LinearGLUExperts(nn.Module):
                 nn.init.uniform_(self.bias_down[i], -bound, bound)
 
     def forward(self, input, i):
-        import torch.distributed as dist
-        if dist.get_rank() == 0:
-            import pdb
-            pdb.set_trace()
-        gate = self.act_fn(
-            F.linear(
-                input,
-                self.weight_gate[i],
-                self.bias_gate[i] if self.bias_gate is not None else None,
+        try:
+            gate = self.act_fn(
+                F.linear(
+                    input,
+                    self.weight_gate[i],
+                    self.bias_gate[i] if self.bias_gate is not None else None,
+                )
             )
-        )
+        except:
+            import torch.distributed as dist
+            if dist.get_rank() == 0:
+                import pdb
+                pdb.set_trace()
         up = F.linear(
             input,
             self.weight_up[i],
