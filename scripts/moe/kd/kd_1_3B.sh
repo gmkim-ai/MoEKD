@@ -4,7 +4,7 @@ MASTER_ADDR=localhost
 MASTER_PORT=${2-2012}
 NNODES=1
 NODE_RANK=0
-GPUS_PER_NODE=${3-4}
+GPUS_PER_NODE=${3-2}
 
 DISTRIBUTED_ARGS="--nproc_per_node $GPUS_PER_NODE \
                   --nnodes $NNODES \
@@ -15,18 +15,18 @@ DISTRIBUTED_ARGS="--nproc_per_node $GPUS_PER_NODE \
 # model
 BASE_PATH=${1-"."}
 CKPT_NAME="sft_init_1_3B"
-CKPT="${BASE_PATH}/results/moe/train/sft/sft_1_3B/e10-bs4-lr1e-05-G2-N4-NN1/${CKPT_NAME}"
+CKPT="${BASE_PATH}/results/moe/train/sft/sft_1_3B/e10-bs8-lr1e-05-G1-N2-NN1/sft_init"
 # CKPT="huggyllama/llama-7b"
 TEACHER_CKPT_NAME="3_0B-2_16"
-TEACHER_CKPT="${BASE_PATH}/results/moe/train/sft/sft_3_0B-2_16/e10-bs4-lr1e-05-G2-N4-NN1/sft_3_0B-2_16"
+TEACHER_CKPT="${BASE_PATH}/results/moe/train/sft/sft_3_0B-2_16/e10-bs1-lr0.0001-G8-N2-NN1/best_rougeL"
 # MP_SIZE=4
 # data
 DATA_DIR="${BASE_PATH}/processed_data/dolly/full/moe/"
 # hp
-BATCH_SIZE=8
+BATCH_SIZE=1
 LR=0.00001
-GRAD_ACC=1
-EVAL_BATCH_SIZE=8
+GRAD_ACC=8
+EVAL_BATCH_SIZE=16
 # length
 MAX_LENGTH=512
 # runtime
@@ -42,16 +42,17 @@ OPTS+=" --model-path ${CKPT}"
 OPTS+=" --teacher-model-path ${TEACHER_CKPT}"
 OPTS+=" --ckpt-name ${CKPT_NAME}"
 OPTS+=" --teacher-ckpt-name ${TEACHER_CKPT_NAME}"
+OPTS+=" --teacher-model-type moe"
 OPTS+=" --teacher-model-fp16"
 OPTS+=" --n-gpu ${GPUS_PER_NODE}"
 OPTS+=" --model-type llama"
-OPTS+=" --gradient-checkpointing"
+# OPTS+=" --gradient-checkpointing"
 # OPTS+=" --model-parallel"
 # OPTS+=" --model-parallel-size ${MP_SIZE}"
 # data
 OPTS+=" --data-dir ${DATA_DIR}"
 OPTS+=" --num-workers 4"
-OPTS+=" --dev-num 1000"
+OPTS+=" --dev-num -1"
 # hp
 OPTS+=" --lr ${LR}"
 OPTS+=" --batch-size ${BATCH_SIZE}"
@@ -79,7 +80,7 @@ OPTS+=" --save ${SAVE_PATH}"
 OPTS+=" --seed ${SEED}"
 # deepspeed
 OPTS+=" --deepspeed"
-OPTS+=" --deepspeed_config ${BASE_PATH}/configs/deepspeed/ds_config_zero2_offload.json"
+OPTS+=" --deepspeed_config ${BASE_PATH}/configs/deepspeed/ds_config.json"
 # type
 OPTS+=" --type kd"
 # gen
@@ -93,6 +94,7 @@ export NCCL_DEBUG=""
 export WANDB_DISABLED=True
 export TF_CPP_MIN_LOG_LEVEL=3
 export PYTHONPATH=${BASE_PATH}
+export PT_HPU_LAZY_MODE=0
 CMD="torchrun ${DISTRIBUTED_ARGS} ${BASE_PATH}/finetune.py ${OPTS} $@"
 
 echo ${CMD}

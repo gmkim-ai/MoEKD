@@ -47,8 +47,12 @@ from peft import PeftModel
 torch.set_num_threads(4)
 
 
-def get_teacher_model(args, device):
-    config = AutoConfig.from_pretrained(args.model_path, trust_remote_code=True)
+def get_teacher_model(args, ds_config, device):
+    if args.teacher_model_type == "moe":
+        config = AutoConfig.from_pretrained(args.teacher_model_path, trust_remote_code=True)
+    else:
+        config = AutoConfig.from_pretrained(args.teacher_model_path)
+
     if args.model_parallel:
         config.is_model_parallel = True
         with init_empty_weights():
@@ -60,14 +64,18 @@ def get_teacher_model(args, device):
         model = model.to(device)
     else:
         config.is_model_parallel = False
-        from llama_moe.modeling_llama_moe_hf import LlamaMoEForCausalLM
-        model = LlamaMoEForCausalLM.from_pretrained(args.teacher_model_path, torch_dtype=torch.bfloat16)
-        # model = AutoModelForCausalLM.from_pretrained(
-        #     args.teacher_model_path, 
-        #     config=config, 
-        #     device_map={"": device}, 
-        #     torch_dtype=torch.float16 if args.model_type!="qwen" else torch.bfloat16
-        # )
+        if args.teacher_model_type == "moe":
+            from llama_moe.modeling_llama_moe_hf import LlamaMoEForCausalLM
+            model = LlamaMoEForCausalLM.from_pretrained(args.teacher_model_path, torch_dtype=torch.bfloat16)
+            model.to(device)
+        else:
+            model = AutoModelForCausalLM.from_pretrained(
+                args.teacher_model_path, 
+                config=config, 
+                device_map={"": device}, 
+                torch_dtype=torch.float16 if args.model_type!="qwen" else torch.bfloat16
+            )
+            model.to(device)
 
         if args.peft is not None and args.teacher_peft_path is not None:
             if args.peft == "lora":
@@ -80,6 +88,17 @@ def get_teacher_model(args, device):
                     sum([p.nelement() for p in model.parameters()])), flush=True)
 
     model.eval()
+
+    model, _, _, _ = deepspeed.initialize(
+        model=model,
+        optimizer=None,
+        args=args,
+        lr_scheduler=None,
+        mpu=mpu if args.model_parallel else None,
+        config_params=ds_config
+    )
+    # get the memory usage
+    print_rank("Model mem\n", torch.cuda.memory_summary())
     
     return model
 
@@ -565,7 +584,7 @@ def main():
         args.teacher_model_type = args.model_type
     
     if args.teacher_model_path is not None:
-        teacher_model = get_teacher_model(args, device)
+        teacher_model = get_teacher_model(args, ds_config, device)
     else:
         teacher_model = None
     
