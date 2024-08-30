@@ -296,6 +296,12 @@ def get_model(args, device):
         config = AutoConfig.from_pretrained(args.model_path, trust_remote_code=True)
     else:
         config = AutoConfig.from_pretrained(args.model_path)
+    
+    if dist.get_rank() == 0:
+        import torch.distributed as dist
+        import pdb
+        pdb.set_trace()
+
     config.prompt = False
 
     st_time = time.time()
@@ -321,7 +327,7 @@ def get_model(args, device):
             dtype = torch.float32 if args.fp32 else torch.bfloat16
         if args.model_type=="moe":
             from llama_moe.modeling_llama_moe_hf import LlamaMoEForCausalLM
-            model = LlamaMoEForCausalLM.from_pretrained(args.model_path, torch_dtype=torch.bfloat16)
+            model = LlamaMoEForCausalLM.from_pretrained(args.model_path, config=config, torch_dtype=torch.bfloat16)
             model.to(device)
         else:
             model = AutoModelForCausalLM.from_pretrained(args.model_path, config=config, torch_dtype=dtype)
