@@ -72,7 +72,7 @@ OPTS+=" --seed ${SEED}"
 OPTS+=" --seed-order ${SEED_ORDER}"
 # # deepspeed
 OPTS+=" --deepspeed"
-OPTS+=" --deepspeed_config ${BASE_PATH}/configs/deepspeed/ds_config_zero3.json"
+OPTS+=" --deepspeed_config ${BASE_PATH}/configs/deepspeed/ds_config.json"
 # type
 OPTS+=" --type lm"
 # gen
