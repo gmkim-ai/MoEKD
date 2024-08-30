@@ -245,7 +245,7 @@ def get_teacher_model(args, device):
 
                     total_virtual_tokens = args.prompt_len * peft_config.num_transformer_submodules
                     tokenizer = AutoTokenizer.from_pretrained(args.teacher_model_path)
-                    if args.model_type in ["gpt2", "opt", "llama", "gptj"]:
+                    if args.model_type in ["gpt2", "opt", "llama", "gptj", "moe"]:
                         tokenizer.pad_token_id = tokenizer.eos_token_id
                     if args.prompt_init_text == "PAD":
                         init_token_ids = [tokenizer.pad_token_id] * total_virtual_tokens # init with pad token
@@ -296,11 +296,6 @@ def get_model(args, device):
         config = AutoConfig.from_pretrained(args.model_path, trust_remote_code=True)
     else:
         config = AutoConfig.from_pretrained(args.model_path)
-    
-    import torch.distributed as dist
-    if dist.get_rank() == 0:
-        import pdb
-        pdb.set_trace()
 
     config.prompt = False
 
@@ -329,6 +324,11 @@ def get_model(args, device):
             from llama_moe.modeling_llama_moe_hf import LlamaMoEForCausalLM
             model = LlamaMoEForCausalLM.from_pretrained(args.model_path, config=config, torch_dtype=torch.bfloat16)
             model.to(device)
+
+            import torch.distributed as dist
+            if dist.get_rank() == 0:
+                import pdb
+                pdb.set_trace()
         else:
             model = AutoModelForCausalLM.from_pretrained(args.model_path, config=config, torch_dtype=dtype)
             model.to(device)
@@ -391,7 +391,7 @@ def get_optimizer_params_peft(args, model: nn.Module):
 
 def get_tokenizer(args):
     tokenizer = AutoTokenizer.from_pretrained(args.model_path)
-    if args.model_type in ["gpt2", "opt", "llama", "gptj", "llama2", "mistral"]:
+    if args.model_type in ["gpt2", "opt", "llama", "gptj", "llama2", "mistral", "moe"]:
         tokenizer.pad_token_id = tokenizer.eos_token_id
     elif args.model_type=="qwen":
         tokenizer.pad_token_id = 151646
