@@ -603,6 +603,10 @@ class LinearGLUExperts(nn.Module):
 
         for i in range(num_experts):
             # this matrix will be transposed when performing linear forwarding
+            import torch.distributed as dist
+            if dist.get_rank() == 0:
+                import pdb
+                pdb.set_trace()
             this_expert_weight_gate = nn.Parameter(
                 torch.empty((size_experts[i], in_features), **factory_kwargs)
             )
