@@ -738,6 +738,11 @@ class UniversalCalculator(nn.Module):
             batch_size, device=topK_scores.device
         ).repeat_interleave(num_selects)
 
+        import torch.distributed as dist
+        if dist.get_rank() == 0:
+            import pdb
+            pdb.set_trace()    
+
         _, index_sorted_topK_indices = topK_indices.sort(0)
 
         sorted_topK_scores = topK_scores.index_select(0, index_sorted_topK_indices)
