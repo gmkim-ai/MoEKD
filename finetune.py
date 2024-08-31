@@ -44,7 +44,7 @@ from rouge_metric import compute_metrics
 
 from peft import PeftModel
 
-torch.set_num_threads(4)
+#torch.set_num_threads(4)
 
 
 def get_teacher_model(args, ds_config, device):
@@ -275,12 +275,12 @@ def finetune(args, tokenizer: AutoTokenizer, model: deepspeed.DeepSpeedEngine, o
     total_loss, total_distil_loss, total_time = 0.0, 0.0, 0.0
     best_eval = 0.0
     
-    evaluate(args, tokenizer, model, dataset["dev"], "dev", 0, device)
+    #evaluate(args, tokenizer, model, dataset["dev"], "dev", 0, device)
     for epoch in range(args.epochs):
         sampler.set_epoch(epoch)
 
         model.train()
-        #model = torch.compile(model, backend="hpu_backend")
+        model = torch.compile(model, backend="hpu_backend")
         for it, (model_batch, no_model_batch, gen_data) in enumerate(train_dataloader):
             dataset["train"].move_to_device(model_batch, no_model_batch, gen_data, device)
             # torch.save((model_batch, no_model_batch), "mb_few.pt")
@@ -309,6 +309,9 @@ def finetune(args, tokenizer: AutoTokenizer, model: deepspeed.DeepSpeedEngine, o
                 loss = lm_loss
                 
             model.backward(loss)
+            if dist.get_rank() == 0:
+                import pdb
+                pdb.set_trace()
             model.step()
             
             dist.all_reduce(loss, dist.ReduceOp.SUM, group=dp_group)
