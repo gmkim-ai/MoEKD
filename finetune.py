@@ -44,7 +44,7 @@ from rouge_metric import compute_metrics
 
 from peft import PeftModel
 
-torch.set_num_threads(20)
+torch.set_num_threads(10)
 
 def get_teacher_model(args, ds_config, device):
     if args.teacher_model_type == "moe":
