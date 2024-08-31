@@ -275,7 +275,7 @@ def finetune(args, tokenizer: AutoTokenizer, model: deepspeed.DeepSpeedEngine, o
     total_loss, total_distil_loss, total_time = 0.0, 0.0, 0.0
     best_eval = 0.0
     
-    #evaluate(args, tokenizer, model, dataset["dev"], "dev", 0, device)
+    evaluate(args, tokenizer, model, dataset["dev"], "dev", 0, device)
     for epoch in range(args.epochs):
         sampler.set_epoch(epoch)
 
@@ -309,9 +309,6 @@ def finetune(args, tokenizer: AutoTokenizer, model: deepspeed.DeepSpeedEngine, o
                 loss = lm_loss
                 
             model.backward(loss)
-            if dist.get_rank() == 0:
-                import pdb
-                pdb.set_trace()
             model.step()
             
             dist.all_reduce(loss, dist.ReduceOp.SUM, group=dp_group)

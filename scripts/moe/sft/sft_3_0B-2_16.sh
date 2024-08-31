@@ -43,7 +43,7 @@ OPTS+=" --model-type moe"
 # OPTS+=" --gradient-checkpointing"
 # data
 OPTS+=" --data-dir ${DATA_DIR}"
-OPTS+=" --num-workers 0"
+OPTS+=" --num-workers 4"
 OPTS+=" --dev-num -1"
 # hp
 OPTS+=" --lr ${LR}"
@@ -53,7 +53,7 @@ OPTS+=" --gradient-accumulation-steps ${GRAD_ACC}"
 OPTS+=" --warmup-iters 0"
 OPTS+=" --lr-decay-style cosine"
 OPTS+=" --weight-decay 1e-2"
-OPTS+=" --clip-grad 0.1" #1.0
+OPTS+=" --clip-grad 1.0" #1.0
 OPTS+=" --epochs 10"
 # length
 OPTS+=" --max-length ${MAX_LENGTH}"
