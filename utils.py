@@ -360,8 +360,12 @@ def get_model(args, device):
 def get_optimizer_params(args, model: nn.Module):
     # taken from https://github.com/facebookresearch/SpanBERT/blob/0670d8b6a38f6714b85ea7a033f16bd8cc162676/code/run_tacred.py
     param_optimizer = list(model.named_parameters())
-    no_decay = ['bias', 'ln_f.weight', 'ln_1.weight', 'ln_2.weight', 'ln_cross_attn']
+    no_decay = ['bias', 'norm.weight', 'ln_f.weight', 'ln_1.weight', 'ln_2.weight', 'ln_cross_attn']
 
+    import torch.distributed as dist # type: ignore
+    if dist.get_rank() == 0:
+        import pdb
+        pdb.set_trace()
     optimizer_grouped_parameters = [
         {'params': [p for n, p in param_optimizer
                     if not any(nd in n for nd in no_decay)]},
