@@ -280,7 +280,7 @@ def finetune(args, tokenizer: AutoTokenizer, model: deepspeed.DeepSpeedEngine, o
         sampler.set_epoch(epoch)
 
         model.train()
-        model = torch.compile(model, backend="hpu_backend")
+        # model = torch.compile(model, backend="hpu_backend")
         for it, (model_batch, no_model_batch, gen_data) in enumerate(train_dataloader):
             dataset["train"].move_to_device(model_batch, no_model_batch, gen_data, device)
             # torch.save((model_batch, no_model_batch), "mb_few.pt")
