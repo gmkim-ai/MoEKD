@@ -54,7 +54,7 @@ OPTS+=" --eval-batch-size ${EVAL_BATCH_SIZE}"
 OPTS+=" --gradient-accumulation-steps ${GRAD_ACC}"
 OPTS+=" --warmup-iters 0"
 OPTS+=" --lr-decay-style cosine"
-OPTS+=" --weight-decay 1e-2"
+OPTS+=" --weight-decay 0.1" #1e-2 EDIT
 OPTS+=" --clip-grad 1.0" #1.0
 OPTS+=" --epochs 10"
 # length

@@ -45,6 +45,8 @@ from rouge_metric import compute_metrics
 from peft import PeftModel
 
 #torch.set_num_threads(4)
+print("HEHEHEHE")
+print(torch.get_num_threads())
 
 
 def get_teacher_model(args, ds_config, device):
