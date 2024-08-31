@@ -44,7 +44,7 @@ OPTS+=" --model-type moe"
 # OPTS+=" --gradient-checkpointing"
 # data
 OPTS+=" --data-dir ${DATA_DIR}"
-OPTS+=" --num-workers 4"
+OPTS+=" --num-workers 8"
 OPTS+=" --dev-num -1"
 # hp
 OPTS+=" --lr ${LR}"
