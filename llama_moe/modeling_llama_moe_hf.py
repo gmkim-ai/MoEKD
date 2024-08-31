@@ -520,8 +520,12 @@ class TopKBalancedNoisyGate(nn.Module):
                 threshold_if_out = torch.unsqueeze(torch.gather(top_values_flat, 0, threshold_positions_if_out), 1)
                 # is each value currently in the top k.
                 # EDIT: torch.nan_to_num is used to prevent NaNs from propagating through the backward pass.
-                prob_if_in = self.normal.cdf(torch.nan_to_num((logits_gate - threshold_if_in) / noise_control))
-                prob_if_out = self.normal.cdf(torch.nan_to_num((logits_gate - threshold_if_out) / noise_control))
+                try:
+                    prob_if_in = self.normal.cdf((logits_gate - threshold_if_in) / noise_control)
+                    prob_if_out = self.normal.cdf((logits_gate - threshold_if_out) / noise_control)
+                except:
+                    prob_if_in = self.normal.cdf(torch.nan_to_num((logits_gate - threshold_if_in) / noise_control))
+                    prob_if_out = self.normal.cdf(torch.nan_to_num((logits_gate - threshold_if_out) / noise_control))
                 prob = torch.where(is_in, prob_if_in, prob_if_out)
                 load = prob.sum(0)
             else:
