@@ -486,22 +486,23 @@ class TopKBalancedNoisyGate(nn.Module):
 
     def forward(self, x):
         logits_gate = self.gate_network(x)
+        # EDIT: torch.nan_to_num is used to prevent NaNs from propagating through the backward pass.
+        if logits_gate.isnan().sum() > 0:
+            print("NaN in logits_gate")
+            logits_gate = torch.randn_like(logits_gate)
+
         if self.training and self.add_noise:
             noise_mm = self.weight_noise(x)
             noise_control = self.softplus(noise_mm) + self.noise_epsilon
-            # import torch.distributed as dist # type: ignore
-            # if dist.get_rank() == 0:
-            #     import pdb
-            #     pdb.set_trace()
             logits_noise = torch.randn_like(logits_gate) * noise_control
             logits = logits_gate + logits_noise
         else:
             logits = logits_gate
         
-        import torch.distributed as dist
-        if dist.get_rank() == 0:
-            import pdb
-            pdb.set_trace()   
+        # import torch.distributed as dist
+        # if dist.get_rank() == 0:
+        #     import pdb
+        #     pdb.set_trace()
 
         top_logits, top_indices = logits.topk(min(self.num_selects + 1, self.num_experts), dim=1)  # 选择并排序前k+1个权重 -> english: Select and sort the top k+1 weights
         top_k_logits = top_logits[:, :self.num_selects]
@@ -525,13 +526,8 @@ class TopKBalancedNoisyGate(nn.Module):
                 threshold_if_out = torch.unsqueeze(torch.gather(top_values_flat, 0, threshold_positions_if_out), 1)
                 # is each value currently in the top k.
                 # EDIT: torch.nan_to_num is used to prevent NaNs from propagating through the backward pass.
-                try:
-                    prob_if_in = self.normal.cdf((logits_gate - threshold_if_in) / noise_control)
-                    prob_if_out = self.normal.cdf((logits_gate - threshold_if_out) / noise_control)
-                except:
-                    print("NaN in prob_if_in or prob_if_out")
-                    prob_if_in = self.normal.cdf(torch.nan_to_num((logits_gate - threshold_if_in) / noise_control))
-                    prob_if_out = self.normal.cdf(torch.nan_to_num((logits_gate - threshold_if_out) / noise_control))
+                prob_if_in = self.normal.cdf((logits_gate - threshold_if_in) / noise_control)
+                prob_if_out = self.normal.cdf((logits_gate - threshold_if_out) / noise_control)
                 prob = torch.where(is_in, prob_if_in, prob_if_out)
                 load = prob.sum(0)
             else:
@@ -1590,6 +1586,7 @@ class LlamaMoEForCausalLM(LlamaMoEPreTrainedModel):
             loss = loss_fct(shift_logits, shift_labels)
             if outputs.balance_loss is not None and outputs.balance_loss > 0:
                 loss += outputs.balance_loss
+                print("Balance_loss_added")
 
         if not return_dict:
             output = (logits,) + outputs[1:]
