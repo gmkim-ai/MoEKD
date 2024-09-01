@@ -6,7 +6,7 @@
         "contiguous_gradients": false
     },
     "zero_allow_untested_optimizer": true,
-    "fp16": {
+    "bf16": {
         "enabled": true,
         "loss_scale": 0,
         "initial_scale_power": 11,
