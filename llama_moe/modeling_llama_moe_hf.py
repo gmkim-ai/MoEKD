@@ -485,15 +485,12 @@ class TopKBalancedNoisyGate(nn.Module):
         return x.float().var() / (x.float().mean() ** 2 + eps)
 
     def forward(self, x):
+        # EDIT: add nan_to_num
+        if x.isnan().sum() > 0:
+            print("NaN in input x")
+            x = torch.nan_to_num(x, nan=0.0, posinf=0.0, neginf=0.0)
+        
         logits_gate = self.gate_network(x)
-        # EDIT: torch.nan_to_num is used to prevent NaNs from propagating through the backward pass.
-        if logits_gate.isnan().sum() > 0:
-            import torch.distributed as dist
-            if dist.get_rank() == 0:
-                import pdb
-                pdb.set_trace()
-            print("NaN in logits_gate")
-            logits_gate = torch.randn_like(logits_gate)
 
         if self.training and self.add_noise:
             noise_mm = self.weight_noise(x)
@@ -529,7 +526,6 @@ class TopKBalancedNoisyGate(nn.Module):
                 threshold_positions_if_out = threshold_positions_if_in - 1
                 threshold_if_out = torch.unsqueeze(torch.gather(top_values_flat, 0, threshold_positions_if_out), 1)
                 # is each value currently in the top k.
-                # EDIT: torch.nan_to_num is used to prevent NaNs from propagating through the backward pass.
                 prob_if_in = self.normal.cdf((logits_gate - threshold_if_in) / noise_control)
                 prob_if_out = self.normal.cdf((logits_gate - threshold_if_out) / noise_control)
                 prob = torch.where(is_in, prob_if_in, prob_if_out)
