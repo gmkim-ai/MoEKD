@@ -21,8 +21,8 @@ CKPT="${BASE_PATH}/checkpoints/llama-moe/foundation/${CKPT_NAME}"
 DATA_DIR="${BASE_PATH}/processed_data/dolly/full/moe/"
 # hp
 BATCH_SIZE=1
-LR=0.001
-MIN_LR=0.0001
+LR=0.0005
+MIN_LR=0.00005
 GRAD_ACC=8
 EVAL_BATCH_SIZE=64
 # length
