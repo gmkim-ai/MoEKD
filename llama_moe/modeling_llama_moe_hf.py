@@ -488,6 +488,10 @@ class TopKBalancedNoisyGate(nn.Module):
         logits_gate = self.gate_network(x)
         # EDIT: torch.nan_to_num is used to prevent NaNs from propagating through the backward pass.
         if logits_gate.isnan().sum() > 0:
+            import torch.distributed as dist
+            if dist.get_rank() == 0:
+                import pdb
+                pdb.set_trace()
             print("NaN in logits_gate")
             logits_gate = torch.randn_like(logits_gate)
 
@@ -753,41 +757,34 @@ class UniversalCalculator(nn.Module):
         sorted_x = x.index_select(0, sorted_batch_indices)
         split_x = torch.split(sorted_x, expert_batch_size, dim=0)
 
-        try:
-            expert_outputs = [
-                self.experts(split_x[i], i)
-                for i in range(self.num_experts)
-                if split_x[i].shape[0] > 0
-            ]
+        expert_outputs = [
+            self.experts(split_x[i], i)
+            for i in range(self.num_experts)
+            if split_x[i].shape[0] > 0
+        ]
 
-            # (bsz*seq_len*num_selects, hidden_size)
-            cat_expert_outputs = torch.cat(expert_outputs, 0)
-            output_dim = cat_expert_outputs.size(1)
-            if self.multiply_gate_scores:
-                if self.mlp_norm is None:
-                    cat_expert_outputs = torch.mul(
-                        cat_expert_outputs,
-                        sorted_topK_scores.reshape(-1, 1) * self.score_scale_factor,
-                    )
-                    # cat_expert_outputs = torch.mul(cat_expert_outputs, sorted_topK_scores.reshape(-1, 1) * 1.0)
-                else:
-                    cat_expert_outputs = torch.mul(
-                        cat_expert_outputs, sorted_topK_scores.reshape(-1, 1)
-                    )
-                    cat_expert_outputs = self.mlp_norm(cat_expert_outputs)
+        # (bsz*seq_len*num_selects, hidden_size)
+        cat_expert_outputs = torch.cat(expert_outputs, 0)
+        output_dim = cat_expert_outputs.size(1)
+        if self.multiply_gate_scores:
+            if self.mlp_norm is None:
+                cat_expert_outputs = torch.mul(
+                    cat_expert_outputs,
+                    sorted_topK_scores.reshape(-1, 1) * self.score_scale_factor,
+                )
+                # cat_expert_outputs = torch.mul(cat_expert_outputs, sorted_topK_scores.reshape(-1, 1) * 1.0)
+            else:
+                cat_expert_outputs = torch.mul(
+                    cat_expert_outputs, sorted_topK_scores.reshape(-1, 1)
+                )
+                cat_expert_outputs = self.mlp_norm(cat_expert_outputs)
 
-            zeros = torch.zeros(
-                (batch_size, output_dim),
-                device=cat_expert_outputs.device,
-                dtype=cat_expert_outputs.dtype,
-            )
-            y = zeros.index_add(0, sorted_batch_indices, cat_expert_outputs)
-        except:
-            print("Error in UniversalCalculator forward")
-            import torch.distributed as dist
-            if dist.get_rank() == 0:
-                import pdb
-                pdb.set_trace()    
+        zeros = torch.zeros(
+            (batch_size, output_dim),
+            device=cat_expert_outputs.device,
+            dtype=cat_expert_outputs.dtype,
+        )
+        y = zeros.index_add(0, sorted_batch_indices, cat_expert_outputs)
 
         return CalculatorOutput(hidden_states=y, num_dropped_tokens=torch.tensor(-1.0))
 
@@ -1586,7 +1583,6 @@ class LlamaMoEForCausalLM(LlamaMoEPreTrainedModel):
             loss = loss_fct(shift_logits, shift_labels)
             if outputs.balance_loss is not None and outputs.balance_loss > 0:
                 loss += outputs.balance_loss
-                print("Balance_loss_added")
 
         if not return_dict:
             output = (logits,) + outputs[1:]
