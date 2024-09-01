@@ -8,6 +8,13 @@
         "contiguous_gradients": true,
         "reduce_scatter": false
     },
+    "fp16": {
+        "enabled": true,
+        "loss_scale": 0,
+        "initial_scale_power": 11,
+        "loss_scale_window": 2000,
+        "hysteresis": 4
+    },
     "gradient_accumulation_steps": "auto",
     "gradient_clipping": "auto",
     "steps_per_print": 2000,
