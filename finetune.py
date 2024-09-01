@@ -548,7 +548,9 @@ def main():
     if not args.do_train:
         ds_config["zero_optimization"]["stage"] = 0
     
-    args.fp32 = not ds_config["fp16"]["enabled"]    
+    #args.fp32 = not ds_config["fp16"]["enabled"]    
+    if args.fp32 is None:
+        args.fp32 = False
     args.deepspeed_config = None
     
     # get the tokenizer
