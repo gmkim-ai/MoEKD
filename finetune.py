@@ -521,7 +521,7 @@ def evaluate(args, tokenizer, model, dataset: LMTrainDataset, split, epoch, devi
 
 
 def main():
-    torch.backends.cudnn.enabled = False
+    #torch.backends.cudnn.enabled = False
     #torch.autograd.set_detect_anomaly(True)
     
     args = get_args()
