@@ -524,6 +524,7 @@ class TopKBalancedNoisyGate(nn.Module):
                     prob_if_in = self.normal.cdf((logits_gate - threshold_if_in) / noise_control)
                     prob_if_out = self.normal.cdf((logits_gate - threshold_if_out) / noise_control)
                 except:
+                    print("NaN in prob_if_in or prob_if_out")
                     prob_if_in = self.normal.cdf(torch.nan_to_num((logits_gate - threshold_if_in) / noise_control))
                     prob_if_out = self.normal.cdf(torch.nan_to_num((logits_gate - threshold_if_out) / noise_control))
                 prob = torch.where(is_in, prob_if_in, prob_if_out)
@@ -751,34 +752,41 @@ class UniversalCalculator(nn.Module):
         sorted_x = x.index_select(0, sorted_batch_indices)
         split_x = torch.split(sorted_x, expert_batch_size, dim=0)
 
-        expert_outputs = [
-            self.experts(split_x[i], i)
-            for i in range(self.num_experts)
-            if split_x[i].shape[0] > 0
-        ]
+        try:
+            expert_outputs = [
+                self.experts(split_x[i], i)
+                for i in range(self.num_experts)
+                if split_x[i].shape[0] > 0
+            ]
 
-        # (bsz*seq_len*num_selects, hidden_size)
-        cat_expert_outputs = torch.cat(expert_outputs, 0)
-        output_dim = cat_expert_outputs.size(1)
-        if self.multiply_gate_scores:
-            if self.mlp_norm is None:
-                cat_expert_outputs = torch.mul(
-                    cat_expert_outputs,
-                    sorted_topK_scores.reshape(-1, 1) * self.score_scale_factor,
-                )
-                # cat_expert_outputs = torch.mul(cat_expert_outputs, sorted_topK_scores.reshape(-1, 1) * 1.0)
-            else:
-                cat_expert_outputs = torch.mul(
-                    cat_expert_outputs, sorted_topK_scores.reshape(-1, 1)
-                )
-                cat_expert_outputs = self.mlp_norm(cat_expert_outputs)
+            # (bsz*seq_len*num_selects, hidden_size)
+            cat_expert_outputs = torch.cat(expert_outputs, 0)
+            output_dim = cat_expert_outputs.size(1)
+            if self.multiply_gate_scores:
+                if self.mlp_norm is None:
+                    cat_expert_outputs = torch.mul(
+                        cat_expert_outputs,
+                        sorted_topK_scores.reshape(-1, 1) * self.score_scale_factor,
+                    )
+                    # cat_expert_outputs = torch.mul(cat_expert_outputs, sorted_topK_scores.reshape(-1, 1) * 1.0)
+                else:
+                    cat_expert_outputs = torch.mul(
+                        cat_expert_outputs, sorted_topK_scores.reshape(-1, 1)
+                    )
+                    cat_expert_outputs = self.mlp_norm(cat_expert_outputs)
 
-        zeros = torch.zeros(
-            (batch_size, output_dim),
-            device=cat_expert_outputs.device,
-            dtype=cat_expert_outputs.dtype,
-        )
-        y = zeros.index_add(0, sorted_batch_indices, cat_expert_outputs)
+            zeros = torch.zeros(
+                (batch_size, output_dim),
+                device=cat_expert_outputs.device,
+                dtype=cat_expert_outputs.dtype,
+            )
+            y = zeros.index_add(0, sorted_batch_indices, cat_expert_outputs)
+        except:
+            print("Error in UniversalCalculator forward")
+            import torch.distributed as dist
+            if dist.get_rank() == 0:
+                import pdb
+                pdb.set_trace()    
 
         return CalculatorOutput(hidden_states=y, num_dropped_tokens=torch.tensor(-1.0))
 
