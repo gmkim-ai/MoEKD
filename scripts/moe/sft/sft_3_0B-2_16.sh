@@ -21,8 +21,8 @@ CKPT="${BASE_PATH}/checkpoints/llama-moe/foundation/${CKPT_NAME}"
 DATA_DIR="${BASE_PATH}/processed_data/dolly/full/moe/"
 # hp
 BATCH_SIZE=1
-LR=0.0001
-MIN_LR=0.00001
+LR=0.00005
+MIN_LR=0.000005
 GRAD_ACC=8
 EVAL_BATCH_SIZE=64
 # length
@@ -74,7 +74,7 @@ OPTS+=" --seed ${SEED}"
 OPTS+=" --seed-order ${SEED_ORDER}"
 # # deepspeed
 OPTS+=" --deepspeed"
-OPTS+=" --deepspeed_config ${BASE_PATH}/configs/deepspeed/ds_config_zero3.json"
+OPTS+=" --deepspeed_config ${BASE_PATH}/configs/deepspeed/ds_config.json"
 # type
 OPTS+=" --type lm"
 # gen
