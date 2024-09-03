@@ -21,10 +21,10 @@ CKPT="${BASE_PATH}/results/moe/train/sft/sft_3_0B-2_16/e10-bs1-lr5e-05-G8-N2-NN1
 # data
 DATA_DIR="${BASE_PATH}/processed_data/dolly/full/moe/"
 # hp
-BATCH_SIZE=1
+BATCH_SIZE=8
 LR=0.00001
 MIN_LR=0.000001
-GRAD_ACC=8
+GRAD_ACC=1
 EVAL_BATCH_SIZE=16
 # length
 MAX_LENGTH=512
@@ -57,7 +57,7 @@ OPTS+=" --warmup-iters 0"
 OPTS+=" --lr-decay-style cosine"
 OPTS+=" --weight-decay 0.1" #1e-2 EDIT
 OPTS+=" --clip-grad 1.0" #1.0
-OPTS+=" --epochs 14"
+OPTS+=" --epochs 22"
 # length
 OPTS+=" --max-length ${MAX_LENGTH}"
 OPTS+=" --max-prompt-length 256"
