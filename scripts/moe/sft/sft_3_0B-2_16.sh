@@ -22,8 +22,8 @@ CKPT="${BASE_PATH}/results/moe/train/sft/sft_3_0B-2_16/e10-bs1-lr5e-05-G8-N2-NN1
 DATA_DIR="${BASE_PATH}/processed_data/dolly/full/moe/"
 # hp
 BATCH_SIZE=1
-LR=0.00005
-MIN_LR=0.000005
+LR=0.00001
+MIN_LR=0.000001
 GRAD_ACC=8
 EVAL_BATCH_SIZE=16
 # length
