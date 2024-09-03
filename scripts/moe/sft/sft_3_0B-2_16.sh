@@ -4,7 +4,7 @@ MASTER_ADDR=localhost
 MASTER_PORT=${2-2012}
 NNODES=1
 NODE_RANK=0
-GPUS_PER_NODE=${3-2}
+GPUS_PER_NODE=${3-6}
 
 DISTRIBUTED_ARGS="--nproc_per_node $GPUS_PER_NODE \
                   --nnodes $NNODES \
@@ -15,7 +15,8 @@ DISTRIBUTED_ARGS="--nproc_per_node $GPUS_PER_NODE \
 # model
 BASE_PATH=${1-"."}
 CKPT_NAME="3_0B-2_16"
-CKPT="${BASE_PATH}/checkpoints/llama-moe/foundation/${CKPT_NAME}"
+#CKPT="${BASE_PATH}/checkpoints/llama-moe/foundation/${CKPT_NAME}"
+CKPT="${BASE_PATH}/results/moe/train/sft/sft_3_0B-2_16/e10-bs1-lr5e-05-G8-N2-NN1-old-epoch8/best_rougeL"
 # CKPT="huggyllama/llama-7b"
 # data
 DATA_DIR="${BASE_PATH}/processed_data/dolly/full/moe/"
@@ -56,7 +57,7 @@ OPTS+=" --warmup-iters 0"
 OPTS+=" --lr-decay-style cosine"
 OPTS+=" --weight-decay 0.1" #1e-2 EDIT
 OPTS+=" --clip-grad 1.0" #1.0
-OPTS+=" --epochs 10"
+OPTS+=" --epochs 12"
 # length
 OPTS+=" --max-length ${MAX_LENGTH}"
 OPTS+=" --max-prompt-length 256"
