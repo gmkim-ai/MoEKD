@@ -88,14 +88,14 @@ def get_teacher_model(args, ds_config, device):
 
     model.eval()
 
-    model, _, _, _ = deepspeed.initialize(
-        model=model,
-        optimizer=None,
-        args=args,
-        lr_scheduler=None,
-        mpu=mpu if args.model_parallel else None,
-        config_params=ds_config
-    )
+    # model, _, _, _ = deepspeed.initialize(
+    #     model=model,
+    #     optimizer=None,
+    #     args=args,
+    #     lr_scheduler=None,
+    #     mpu=mpu if args.model_parallel else None,
+    #     config_params=ds_config
+    # )
     # get the memory usage
     print_rank("Model mem\n", torch.cuda.memory_summary())
     
