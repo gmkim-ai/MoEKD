@@ -305,12 +305,19 @@ class ModelOutput(OrderedDict):
         This is necessary to synchronize gradients when using `torch.nn.parallel.DistributedDataParallel` with
         `static_graph=True` with modules that output `ModelOutput` subclasses.
         """
+        # EDIT: _register_pytree_node is not available in torch.utils._pytree, so we use the _torch_pytree module
         if is_torch_available():
-            _torch_pytree._register_pytree_node(
+            _torch_pytree.register_pytree_node(
                 cls,
                 _model_output_flatten,
                 _model_output_unflatten,
             )
+        # if is_torch_available():
+        #     _torch_pytree._register_pytree_node(
+        #         cls,
+        #         _model_output_flatten,
+        #         _model_output_unflatten,
+        #     )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

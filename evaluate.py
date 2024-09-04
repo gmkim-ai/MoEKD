@@ -1,3 +1,5 @@
+import habana_frameworks.torch.gpu_migration
+import habana_frameworks.torch.core as htcore
 import time
 import os
 
@@ -20,7 +22,7 @@ from evaluate_main import evaluate_main, prepare_dataset_main
 from evaluate_exposure_bias import evaluate_eb, prepare_dataset_eb
 
 
-torch.set_num_threads(4)
+torch.set_num_threads(8)
 
 
 def setup_model(args, ds_config, device):
@@ -49,7 +51,7 @@ def setup_model(args, ds_config, device):
 
 
 def main():
-    torch.backends.cudnn.enabled = False
+    #torch.backends.cudnn.enabled = False
     
     args = get_args()
     initialize(args)
@@ -74,7 +76,9 @@ def main():
     if not args.do_train:
         ds_config["zero_optimization"]["stage"] = 0
 
-    args.fp32 = not ds_config["fp16"]["enabled"] 
+    if args.fp32 is None:
+        args.fp32 = False
+    # args.fp32 = not ds_config["fp16"]["enabled"] 
     args.deepspeed_config = None
 
     # get the tokenizer

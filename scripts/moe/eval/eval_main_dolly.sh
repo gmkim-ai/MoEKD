@@ -22,7 +22,7 @@ DATA_DIR="${BASE_PATH}/data/dolly"
 # hp
 EVAL_BATCH_SIZE=16
 # runtime
-SAVE_PATH="${BASE_PATH}/results/llama/eval_main/"
+SAVE_PATH="${BASE_PATH}/results/moe/eval_main/"
 TYPE="eval_main"
 
 
@@ -63,6 +63,7 @@ export NCCL_DEBUG=""
 export TOKENIZERS_PARALLELISM=false
 export PYTHONIOENCODING=utf-8
 export PYTHONPATH=${BASE_PATH}
+export PT_HPU_LAZY_MODE=0
 CMD="torchrun ${DISTRIBUTED_ARGS} ${BASE_PATH}/evaluate.py ${OPTS} $@"
 
 echo ${CMD}

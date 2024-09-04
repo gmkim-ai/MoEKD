@@ -16,14 +16,13 @@ DISTRIBUTED_ARGS="--nproc_per_node $GPUS_PER_NODE \
 BASE_PATH=${1-"/home/MiniLLM"}
 CKPT_NAME=${4-"llama-7B"}
 CKPT="${BASE_PATH}/${CKPT_NAME}/"
-MP_SIZE=4
 # data
 DATA_NAMES="self_inst"
 DATA_DIR="${BASE_PATH}/data/self-inst"
 # hp
 EVAL_BATCH_SIZE=16
 # runtime
-SAVE_PATH="${BASE_PATH}/results/llama/eval_main/"
+SAVE_PATH="${BASE_PATH}/results/moe/eval_main/"
 TYPE="eval_main"
 
 
@@ -66,6 +65,7 @@ export NCCL_DEBUG=""
 export TOKENIZERS_PARALLELISM=false
 export PYTHONIOENCODING=utf-8
 export PYTHONPATH=${BASE_PATH}
+export PT_HPU_LAZY_MODE=0
 CMD="torchrun ${DISTRIBUTED_ARGS} ${BASE_PATH}/evaluate.py ${OPTS} $@"
 
 echo ${CMD}
