@@ -57,7 +57,7 @@ OPTS+=" --warmup-iters 0"
 OPTS+=" --lr-decay-style cosine"
 OPTS+=" --weight-decay 0.1" #1e-2 EDIT
 OPTS+=" --clip-grad 1.0" #1.0
-OPTS+=" --epochs 30"
+OPTS+=" --epochs 20"
 # length
 OPTS+=" --max-length ${MAX_LENGTH}"
 OPTS+=" --max-prompt-length 256"
