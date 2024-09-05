@@ -23,10 +23,10 @@ TEACHER_CKPT="${BASE_PATH}/results/moe/train/sft/sft_3_5B-4_16/e20-bs8-lr1e-05-G
 # data
 DATA_DIR="${BASE_PATH}/processed_data/dolly/full/moe/"
 # hp
-BATCH_SIZE=1
+BATCH_SIZE=8
 LR=0.00001
-GRAD_ACC=8
-EVAL_BATCH_SIZE=16
+GRAD_ACC=1
+EVAL_BATCH_SIZE=32
 # length
 MAX_LENGTH=512
 # runtime
