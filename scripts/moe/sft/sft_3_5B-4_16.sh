@@ -22,8 +22,8 @@ CKPT="${BASE_PATH}/checkpoints/llama-moe/foundation/${CKPT_NAME}"
 DATA_DIR="${BASE_PATH}/processed_data/dolly/full/moe/"
 # hp
 BATCH_SIZE=8
-LR=0.0001
-MIN_LR=0.00001
+LR=0.00001 #0.0001
+#MIN_LR=0.00001
 GRAD_ACC=4
 EVAL_BATCH_SIZE=32
 # length
@@ -49,7 +49,7 @@ OPTS+=" --num-workers 8"
 OPTS+=" --dev-num -1"
 # hp
 OPTS+=" --lr ${LR}"
-OPTS+=" --lr-min ${MIN_LR}" #EDIT
+#OPTS+=" --lr-min ${MIN_LR}" #EDIT
 OPTS+=" --batch-size ${BATCH_SIZE}"
 OPTS+=" --eval-batch-size ${EVAL_BATCH_SIZE}"
 OPTS+=" --gradient-accumulation-steps ${GRAD_ACC}"
