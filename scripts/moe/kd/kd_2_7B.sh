@@ -14,8 +14,8 @@ DISTRIBUTED_ARGS="--nproc_per_node $GPUS_PER_NODE \
 
 # model
 BASE_PATH=${1-"."}
-CKPT_NAME="sft_init_1_3B"
-CKPT="${BASE_PATH}/results/moe/train/sft/sft_1_3B/e10-bs8-lr1e-05-G1-N2-NN1/sft_init"
+CKPT_NAME="sft_init_2_7B"
+CKPT="${BASE_PATH}/results/moe/train/sft/sft_2_7B/e10-bs8-lr1e-05-G1-N2-NN1/sft_init"
 # CKPT="huggyllama/llama-7b"
 TEACHER_CKPT_NAME="3_5B-4_16"
 TEACHER_CKPT="${BASE_PATH}/results/moe/train/sft/sft_3_5B-4_16/e20-bs8-lr1e-05-G4-N6-NN1/best_rougeL"
@@ -30,7 +30,7 @@ EVAL_BATCH_SIZE=16
 # length
 MAX_LENGTH=512
 # runtime
-SAVE_PATH="${BASE_PATH}/results/moe/train/kd/kd_1_3B"
+SAVE_PATH="${BASE_PATH}/results/moe/train/kd/kd_2_7B"
 # seed
 SEED=10
 
