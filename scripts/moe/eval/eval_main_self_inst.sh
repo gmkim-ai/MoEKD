@@ -66,6 +66,7 @@ export TOKENIZERS_PARALLELISM=false
 export PYTHONIOENCODING=utf-8
 export PYTHONPATH=${BASE_PATH}
 export PT_HPU_LAZY_MODE=0
+export OMP_NUM_THREADS=8
 CMD="torchrun ${DISTRIBUTED_ARGS} ${BASE_PATH}/evaluate.py ${OPTS} $@"
 
 echo ${CMD}
