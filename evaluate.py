@@ -54,6 +54,12 @@ def main():
     #torch.backends.cudnn.enabled = False
     
     args = get_args()
+
+    # if arges.save folder exists, then terminate
+    if os.path.exists(args.save):
+        print(f"Folder {args.save} exists. Terminating.")
+        return
+
     initialize(args)
     
     if dist.get_rank() == 0:
