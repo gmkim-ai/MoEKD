@@ -12,3 +12,5 @@ do
         sleep 10
     done
 done
+
+python3 compute_score.py --name ${ckpt}
