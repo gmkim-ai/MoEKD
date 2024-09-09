@@ -10,6 +10,7 @@ def main():
     args.name = args.name.replace('/', '_')
     data_list = ['dolly-512', 'self_inst-512', 'sinst_11_-512', 'uinst_11_-512', 'vicuna-512']
     seed_list = ['10', '20', '30', '40', '50']
+    total_avg = 0.0
     for data in data_list:
         total_score = 0.0
         std_list = []
@@ -26,8 +27,10 @@ def main():
                 score = float(last_line[start_index+len(args.metric)+4:end_index])
                 total_score += score
                 std_list.append(score)
+        total_avg += total_score
         std_value = compute_standard_deviation(std_list)
         print("%s: %f, %f" % (data, total_score / 5.0, std_value))
+    print("Total avg: %f" % (total_avg / 25.0))
 
 def compute_standard_deviation(numbers):
     n = len(numbers)
