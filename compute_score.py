@@ -17,7 +17,7 @@ def main():
             if args.path is not None:
                 target_path = '%s/%s/%s/%s/log.txt' % (args.path, data, args.name, seed)
             else:
-                target_path = 'results/gpt2/eval_main/%s/%s/%s/log.txt' % (data, args.name, seed)
+                target_path = 'results/moe/eval_main/%s/%s/%s/log.txt' % (data, args.name, seed)
             with open(target_path, 'r') as f:
                 lines = f.readlines()
                 last_line = lines[-1]
