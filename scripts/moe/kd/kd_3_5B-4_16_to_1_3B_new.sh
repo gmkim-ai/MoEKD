@@ -101,6 +101,10 @@ CMD="torchrun ${DISTRIBUTED_ARGS} ${BASE_PATH}/finetune.py ${OPTS} $@"
 echo ${CMD}
 echo "PYTHONPATH=${PYTHONPATH}"
 mkdir -p ${SAVE_PATH}
-${CMD}
+while ! test -f ./results/moe/train/kd/kd_1_3B/e10-bs4-lr1e-05-G1-N4-NN1-kd0.5/best_rougeL/log.txt
+do
+    ${CMD}
+    sleep 20
+done
 
 bash scripts/moe/eval/run_eval.sh . results/moe/train/kd/kd_1_3B/e10-bs4-lr1e-05-G1-N4-NN1-kd0.5/best_rougeL 15035 llama ${GPUS_PER_NODE}
