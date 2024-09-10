@@ -11,7 +11,7 @@ do
         while ! test -f ./results/moe/eval_main/${data}-512/${ckpt//"/"/"_"}/${seed}/preds.txt
         do
             bash ${base_path}/scripts/moe/eval/eval_main_${data}.sh ${base_path} ${port} ${gpu_num} ${ckpt} --model-type ${model_type} --seed $seed  --eval-batch-size 64
-            sleep 5
+            sleep 20
         done
     done
 done
