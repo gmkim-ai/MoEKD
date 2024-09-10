@@ -133,27 +133,6 @@ def run_model(args, tokenizer, model, dataset: PromptDataset, epoch, device):
 
 
 def evaluate_main(args, tokenizer, model, dataset: PromptDataset, split, epoch, device):
-
-    # if some inference fails, remove the folder
-    if args.ckpt_name is not None:
-        tmp = args.ckpt_name.split("/")
-    if tmp[-1].isdigit():
-        ckpt_name = "_".join(tmp[:-1]) + "/" + tmp[-1]
-    else:
-        ckpt_name = "_".join(tmp)
-
-    for data_name in ["dolly", "self_inst", "vicuna", "sinst", "uinst"]:
-        for seed in [10, 20, 30, 40, 50]:    
-            save_path = os.path.join(
-                    "./results/moe/eval_main",
-                    f"{data_name}-512",
-                    ckpt_name,
-                    f"{seed}",
-                )
-            if not os.path.exists(os.path.join(save_path, "answers.jsonl")):
-                import shutil
-                shutil.rmtree(save_path)
-            
         
     lm_loss, query_ids, response_ids = run_model(args, tokenizer, model, dataset, epoch, device)
     query_strs = tokenizer.batch_decode(query_ids, skip_special_tokens=True)
