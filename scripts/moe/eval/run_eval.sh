@@ -4,7 +4,7 @@ port=${3-"15031"}
 model_type=${4-"llama"}
 gpu_num=${5-"1"}
 
-for data in dolly self_inst vicuna sinst uinst 
+for data in dolly self_inst vicuna sinst_11_ uinst_11_
 do
     for seed in 10 20 30 40 50
     do
