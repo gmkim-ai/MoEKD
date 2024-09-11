@@ -14,56 +14,50 @@ DISTRIBUTED_ARGS="--nproc_per_node $GPUS_PER_NODE \
 
 # model
 BASE_PATH=${1-"."}
-CKPT_NAME="sft_init_1_3B"
-CKPT="${BASE_PATH}/results/moe/train/sft/sft_1_3B/e10-bs8-lr1e-05-G1-N2-NN1/sft_init"
+CKPT_NAME="llama2_7B"
+CKPT="${BASE_PATH}/checkpoints/llama2/7B"
+#CKPT="${BASE_PATH}/results/moe/train/sft/sft_3_0B-2_16/e10-bs1-lr5e-05-G8-N2-NN1-old-epoch8/best_rougeL"
 # CKPT="huggyllama/llama-7b"
-TEACHER_CKPT_NAME="3_5B-4_16"
-TEACHER_CKPT="${BASE_PATH}/results/moe/train/sft/sft_3_5B-4_16/e10-bs4-lr1e-05-G1-N4-NN1/best_rougeL"
-# MP_SIZE=4
 # data
 DATA_DIR="${BASE_PATH}/processed_data/dolly/full/moe/"
 # hp
 BATCH_SIZE=4
-LR=0.00001
+LR=0.00001 #0.0001
+#MIN_LR=0.00001
 GRAD_ACC=1
 EVAL_BATCH_SIZE=32
 # length
 MAX_LENGTH=512
 # runtime
-SAVE_PATH="${BASE_PATH}/results/moe/train/moekd/moekd_1_3B"
+SAVE_PATH="${BASE_PATH}/results/moe/train/sft/sft_llama2_7B"
 # seed
 SEED=10
+SEED_ORDER=10
 
 
 OPTS=""
 # model
 OPTS+=" --base-path ${BASE_PATH}"
 OPTS+=" --model-path ${CKPT}"
-OPTS+=" --teacher-model-path ${TEACHER_CKPT}"
 OPTS+=" --ckpt-name ${CKPT_NAME}"
-OPTS+=" --teacher-ckpt-name ${TEACHER_CKPT_NAME}"
-OPTS+=" --teacher-model-type moe"
-OPTS+=" --teacher-model-fp16"
 OPTS+=" --n-gpu ${GPUS_PER_NODE}"
 OPTS+=" --model-type llama"
 # OPTS+=" --gradient-checkpointing"
-# OPTS+=" --model-parallel"
-# OPTS+=" --model-parallel-size ${MP_SIZE}"
 # data
 OPTS+=" --data-dir ${DATA_DIR}"
-OPTS+=" --num-workers 4"
+OPTS+=" --num-workers 8"
 OPTS+=" --dev-num -1"
 # hp
 OPTS+=" --lr ${LR}"
+#OPTS+=" --lr-min ${MIN_LR}" #EDIT
 OPTS+=" --batch-size ${BATCH_SIZE}"
 OPTS+=" --eval-batch-size ${EVAL_BATCH_SIZE}"
 OPTS+=" --gradient-accumulation-steps ${GRAD_ACC}"
 OPTS+=" --warmup-iters 0"
 OPTS+=" --lr-decay-style cosine"
-OPTS+=" --weight-decay 1e-2"
-OPTS+=" --clip-grad 1.0"
+OPTS+=" --weight-decay 0.1" #1e-2 EDIT
+OPTS+=" --clip-grad 1.0" #1.0
 OPTS+=" --epochs 10"
-OPTS+=" --kd-ratio 0.5"
 # length
 OPTS+=" --max-length ${MAX_LENGTH}"
 OPTS+=" --max-prompt-length 256"
@@ -73,16 +67,17 @@ OPTS+=" --do-valid"
 OPTS+=" --eval-gen"
 OPTS+=" --save-interval -1"
 OPTS+=" --eval-interval -1"
-OPTS+=" --log-interval 4"
+OPTS+=" --log-interval 10"
 OPTS+=" --mid-log-num -1"
 OPTS+=" --save ${SAVE_PATH}"
 # seed
 OPTS+=" --seed ${SEED}"
-# deepspeed
+OPTS+=" --seed-order ${SEED_ORDER}"
+# # deepspeed
 OPTS+=" --deepspeed"
 OPTS+=" --deepspeed_config ${BASE_PATH}/configs/deepspeed/ds_config.json"
 # type
-OPTS+=" --type moekd"
+OPTS+=" --type lm"
 # gen
 OPTS+=" --do-sample"
 OPTS+=" --top-k 0"
@@ -96,15 +91,16 @@ export TF_CPP_MIN_LOG_LEVEL=3
 export PYTHONPATH=${BASE_PATH}
 export PT_HPU_LAZY_MODE=0
 export OMP_NUM_THREADS=8
+# OPTS+=" --use_lazy_mode=False"
 CMD="torchrun ${DISTRIBUTED_ARGS} ${BASE_PATH}/finetune.py ${OPTS} $@"
 
 echo ${CMD}
 echo "PYTHONPATH=${PYTHONPATH}"
 mkdir -p ${SAVE_PATH}
-while ! test -f ./results/moe/train/moekd/moekd_1_3B/e10-bs4-lr1e-05-G1-N4-NN1-kd0.5/best_rougeL/log.txt
+while ! test -f ./results/moe/train/sft/sft_llama2_7B/e10-bs4-lr1e-05-G1-N4-NN1/best_rougeL/log.txt
 do
     ${CMD}
     sleep 20
 done
 
-bash scripts/moe/eval/run_eval.sh . results/moe/train/moekd/moekd_1_3B/e10-bs4-lr1e-05-G1-N4-NN1-kd0.5/best_rougeL 15035 llama ${GPUS_PER_NODE}
+bash scripts/moe/eval/run_eval.sh . results/moe/train/sft/sft_llama2_7B/e10-bs4-lr1e-05-G1-N4-NN1/best_rougeL 15035 llama ${GPUS_PER_NODE}

@@ -269,7 +269,7 @@ def get_args():
             args.save_additional_suffix
         )
         args.save = save_path
-    elif args.type == "kd":
+    elif args.type == "kd" or args.type == "moekd":
         save_path = os.path.join(
             args.save,
             (f"{args.ckpt_name}" + f"-{args.peft_name}" if args.peft_name is not None else "" + \
