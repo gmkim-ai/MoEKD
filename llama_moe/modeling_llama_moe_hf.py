@@ -52,6 +52,7 @@ class MoECausalLMOutputWithPast(CausalLMOutputWithPast):
     num_dropped_tokens: Optional[Tuple[int]] = None
     gate_load: Optional[Tuple[List[torch.Tensor]]] = None
     gate_importance: Optional[Tuple[List[torch.Tensor]]] = None
+    gate_logits: Optional[Tuple[torch.FloatTensor]] = None
 
 
 @dataclass
