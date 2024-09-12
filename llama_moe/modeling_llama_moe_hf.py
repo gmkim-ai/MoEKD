@@ -43,6 +43,7 @@ class BaseMoEModelOutputWithPast(ModelOutput):
     num_dropped_tokens: Optional[Tuple[torch.Tensor]] = None
     gate_load: Optional[Tuple[List]] = None
     gate_importance: Optional[Tuple[List]] = None
+    gate_logits: Optional[Tuple[torch.FloatTensor]] = None
 
 
 @dataclass
@@ -486,20 +487,14 @@ class TopKBalancedNoisyGate(nn.Module):
         return x.float().var() / (x.float().mean() ** 2 + eps)
 
     def forward(self, x, gate_logit_output=False):
-        # EDIT: add nan_to_num
-        if x.isnan().sum() > 0:
-            print("NaN in input x")
-            x = torch.nan_to_num(x, nan=0.0, posinf=0.0, neginf=0.0)
+        # # EDIT: add nan_to_num
+        # if x.isnan().sum() > 0:
+        #     print("NaN in input x")
+        #     x = torch.nan_to_num(x, nan=0.0, posinf=0.0, neginf=0.0)
         
         logits_gate = self.gate_network(x)
-
-        import torch.distributed as dist
-        if dist.get_rank() == 0:
-            import pdb
-            pdb.set_trace()
-
+        
         if self.training and self.add_noise:
-            print("This is training process in router gate, which is error")
             noise_mm = self.weight_noise(x)
             noise_control = self.softplus(noise_mm) + self.noise_epsilon
             logits_noise = torch.randn_like(logits_gate) * noise_control
@@ -508,14 +503,9 @@ class TopKBalancedNoisyGate(nn.Module):
             logits = logits_gate
         
         if gate_logit_output:
-            gate_logits = logits
+            gate_logits = logits #[2048=B*L, 16=num_experts]
         else:
             gate_logits = None
-
-        # import torch.distributed as dist
-        # if dist.get_rank() == 0:
-        #     import pdb
-        #     pdb.set_trace()
 
         top_logits, top_indices = logits.topk(min(self.num_selects + 1, self.num_experts), dim=1)  # 选择并排序前k+1个权重 -> english: Select and sort the top k+1 weights
         top_k_logits = top_logits[:, :self.num_selects]
@@ -1095,6 +1085,7 @@ class LlamaMoEDecoderLayer(nn.Module):
             mlp_outs.num_dropped_tokens,
             mlp_outs.gate_load,
             mlp_outs.gate_importance,
+            mlp_outs.gate_logits,
         )
         if output_attentions:
             outputs += (self_attn_weights,)
@@ -1308,6 +1299,7 @@ class LlamaMoEModel(LlamaMoEPreTrainedModel):
         num_dropped_tokens = ()
         gate_load = ()
         gate_importance = ()
+        gate_logits = ()
         for idx, decoder_layer in enumerate(self.layers):
             if output_hidden_states:
                 all_hidden_states += (hidden_states,)
@@ -1349,14 +1341,15 @@ class LlamaMoEModel(LlamaMoEPreTrainedModel):
                 balance_loss += layer_outputs[1]
 
             if use_cache:
-                next_decoder_cache += (layer_outputs[6 if output_attentions else 5],)
+                next_decoder_cache += (layer_outputs[7 if output_attentions else 6],)
 
             if output_attentions:
-                all_self_attns += (layer_outputs[5],)
+                all_self_attns += (layer_outputs[6],)
 
             num_dropped_tokens += (layer_outputs[2],)
             gate_load += (layer_outputs[3],)
             gate_importance += (layer_outputs[4],)
+            gate_logits += (layer_outputs[5],)
 
         hidden_states = self.norm(hidden_states)
 
@@ -1380,6 +1373,7 @@ class LlamaMoEModel(LlamaMoEPreTrainedModel):
             num_dropped_tokens=num_dropped_tokens,
             gate_load=gate_load,
             gate_importance=gate_importance,
+            gate_logits=gate_logits,
         )
 
     def update_config(self):
@@ -1614,6 +1608,7 @@ class LlamaMoEForCausalLM(LlamaMoEPreTrainedModel):
             balance_loss=outputs.balance_loss,
             gate_load=outputs.gate_load,
             gate_importance=outputs.gate_importance,
+            gate_logits=outputs.gate_logits,
         )
 
     def prepare_inputs_for_generation(
