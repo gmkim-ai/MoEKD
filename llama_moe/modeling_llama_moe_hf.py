@@ -60,6 +60,7 @@ class MoEMlpOutput(ModelOutput):
     num_dropped_tokens: Optional[int] = None
     gate_load: Optional[List] = None
     gate_importance: Optional[List] = None
+    gate_logits: Optional[torch.FloatTensor] = None
 
 
 def _make_causal_mask(
@@ -492,6 +493,11 @@ class TopKBalancedNoisyGate(nn.Module):
         
         logits_gate = self.gate_network(x)
 
+        import torch.distributed as dist
+        if dist.get_rank() == 0:
+            import pdb
+            pdb.set_trace()
+
         if self.training and self.add_noise:
             print("This is training process in router gate, which is error")
             noise_mm = self.weight_noise(x)
@@ -501,6 +507,11 @@ class TopKBalancedNoisyGate(nn.Module):
         else:
             logits = logits_gate
         
+        if gate_logit_output:
+            gate_logits = logits
+        else:
+            gate_logits = None
+
         # import torch.distributed as dist
         # if dist.get_rank() == 0:
         #     import pdb
@@ -552,6 +563,7 @@ class TopKBalancedNoisyGate(nn.Module):
             "balance_loss": balance_loss,
             "load": load,
             "importance": importance,
+            "gate_logits": gate_logits,
         }
 
 
@@ -838,6 +850,7 @@ class BaseMoELayer(nn.Module):
             num_dropped_tokens=calc_outs.num_dropped_tokens,
             gate_load=gate_outputs.get("load", torch.tensor(-1)),
             gate_importance=gate_outputs.get("importance", torch.tensor(-1)),
+            gate_logits=gate_outputs.get("gate_logits"),
         )
 
     def set_num_selects(self, num_selects):

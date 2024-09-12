@@ -191,7 +191,7 @@ def get_distil_loss(args, tokenizer, model, teacher_model, model_batch, no_model
     with torch.no_grad():
         teacher_model.eval()
         if args.type == "moekd":
-            teacher_outputs, _ = teacher_model(**model_batch, use_cache=False, gate_logit_output=True)
+            teacher_outputs = teacher_model(**model_batch, use_cache=False, gate_logit_output=True)
         else:
             teacher_outputs = teacher_model(**model_batch, use_cache=False)
         teacher_logits = teacher_outputs.logits
@@ -277,7 +277,7 @@ def finetune(args, tokenizer: AutoTokenizer, model: deepspeed.DeepSpeedEngine, o
     total_loss, total_distil_loss, total_time = 0.0, 0.0, 0.0
     best_eval = 0.0
     
-    evaluate(args, tokenizer, model, dataset["dev"], "dev", 0, device)
+    #evaluate(args, tokenizer, model, dataset["dev"], "dev", 0, device)
     for epoch in range(args.epochs):
         sampler.set_epoch(epoch)
 
