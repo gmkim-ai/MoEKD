@@ -192,22 +192,7 @@ def get_distil_loss(args, tokenizer, model, teacher_model, model_batch, no_model
         teacher_model.eval()
         if args.type == "moekd":
             teacher_outputs = teacher_model(**model_batch, use_cache=False, gate_logit_output=True)
-
-            if dist.get_rank() == 0:
-                import pdb
-                pdb.set_trace()
-                # loss=loss,
-                # logits=logits,
-                # past_key_values=outputs.past_key_values,
-                # hidden_states=outputs.hidden_states,
-                # attentions=outputs.attentions,
-                # num_dropped_tokens=outputs.num_dropped_tokens,
-                # balance_loss=outputs.balance_loss,
-                # gate_load=outputs.gate_load,
-                # gate_importance=outputs.gate_importance,
-                # gate_logits=outputs.gate_logits,
             gate_logits = teacher_outputs.gate_logits #len: 32(layers), each shape [2048 * 16]
-            
         else:
             teacher_outputs = teacher_model(**model_batch, use_cache=False)
         teacher_logits = teacher_outputs.logits
@@ -225,6 +210,8 @@ def get_distil_loss(args, tokenizer, model, teacher_model, model_batch, no_model
         mask = (no_model_batch["label"] != -100).int()
         distil_loss = -torch.sum(x * mask.view(-1), dim=0) / torch.sum(mask.view(-1), dim=0)
     
+    if args.type == "moekd":
+        return distil_loss, gate_logits
     return distil_loss
 
 
@@ -321,8 +308,18 @@ def finetune(args, tokenizer: AutoTokenizer, model: deepspeed.DeepSpeedEngine, o
                 lm_loss = loss_func(logits.float().view(-1, logits.shape[-1]), no_model_batch["label"].view(-1))
             
             if teacher_model is not None:
-                distil_loss = get_distil_loss(args, tokenizer, model, teacher_model, model_batch, no_model_batch, logits)
-                loss = (1 - args.kd_ratio) * lm_loss + args.kd_ratio * distil_loss
+                if args.type == "moekd":
+                    distil_loss, gate_logits = get_distil_loss(args, tokenizer, model, teacher_model, model_batch, no_model_batch, logits)
+                    loss = (1 - args.kd_ratio) * lm_loss + args.kd_ratio * distil_loss
+                    # (no_model_batch["label"] != -100).int()
+                     
+                    os.makedirs(os.path.join(args.save, "gate_logits"), exist_ok=True)
+                    os.makedirs(os.path.join(args.save, "no_model_batch"), exist_ok=True)
+                    torch.save(gate_logits, os.path.join(args.save, "gate_logits", f"{step}.pt"))
+                    torch.save(no_model_batch["label"], os.path.join(args.save, "no_model_batch", f"{step}.pt"))
+                else:
+                    distil_loss = get_distil_loss(args, tokenizer, model, teacher_model, model_batch, no_model_batch, logits)
+                    loss = (1 - args.kd_ratio) * lm_loss + args.kd_ratio * distil_loss
             else:
                 loss = lm_loss
                 
