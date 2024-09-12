@@ -206,7 +206,7 @@ def get_distil_loss(args, tokenizer, model, teacher_model, model_batch, no_model
                 # gate_load=outputs.gate_load,
                 # gate_importance=outputs.gate_importance,
                 # gate_logits=outputs.gate_logits,
-            gate_logits = teacher_outputs.gate_logits
+            gate_logits = teacher_outputs.gate_logits #len: 32(layers), each shape [2048 * 16]
             
         else:
             teacher_outputs = teacher_model(**model_batch, use_cache=False)
@@ -217,7 +217,7 @@ def get_distil_loss(args, tokenizer, model, teacher_model, model_batch, no_model
         loss_mask = no_model_batch["loss_mask"].view(-1)
         distil_loss = (distil_losses * loss_mask).sum(-1) / loss_mask.sum(-1)
     else:
-        teacher_probs = F.softmax(teacher_logits, dim=-1, dtype=torch.float32)
+        teacher_probs = F.softmax(teacher_logits, dim=-1, dtype=torch.float32)  # [B, L, V]
         inf_mask = torch.isinf(logits)
         logprobs = F.log_softmax(logits, dim=-1, dtype=torch.float32)
         prod_probs = torch.masked_fill(teacher_probs * logprobs, inf_mask, 0)
