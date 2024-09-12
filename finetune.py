@@ -190,7 +190,10 @@ def prepare_dataset(args, tokenizer):
 def get_distil_loss(args, tokenizer, model, teacher_model, model_batch, no_model_batch, logits):
     with torch.no_grad():
         teacher_model.eval()
-        teacher_outputs = teacher_model(**model_batch, use_cache=False)
+        if args.type == "moekd":
+            teacher_outputs, _ = teacher_model(**model_batch, use_cache=False, gate_logit_output=True)
+        else:
+            teacher_outputs = teacher_model(**model_batch, use_cache=False)
         teacher_logits = teacher_outputs.logits
     if args.model_parallel:
         distil_losses = mpu.parallel_soft_cross_entropy_loss(logits.float(), teacher_logits.float())

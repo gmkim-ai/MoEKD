@@ -484,7 +484,7 @@ class TopKBalancedNoisyGate(nn.Module):
             return torch.tensor(0.0, device=x.device)
         return x.float().var() / (x.float().mean() ** 2 + eps)
 
-    def forward(self, x):
+    def forward(self, x, gate_logit_output=False):
         # EDIT: add nan_to_num
         if x.isnan().sum() > 0:
             print("NaN in input x")
@@ -493,6 +493,7 @@ class TopKBalancedNoisyGate(nn.Module):
         logits_gate = self.gate_network(x)
 
         if self.training and self.add_noise:
+            print("This is training process in router gate, which is error")
             noise_mm = self.weight_noise(x)
             noise_control = self.softplus(noise_mm) + self.noise_epsilon
             logits_noise = torch.randn_like(logits_gate) * noise_control
@@ -823,10 +824,10 @@ class BaseMoELayer(nn.Module):
         else:
             raise NotImplementedError
 
-    def forward(self, x) -> MoEMlpOutput:
+    def forward(self, x, gate_logit_output=False) -> MoEMlpOutput:
         original_shape = x.shape[:-1]
         x = x.reshape(-1, self.input_size)
-        gate_outputs: dict = self.gate(x)
+        gate_outputs: dict = self.gate(x, gate_logit_output=gate_logit_output)
         calc_outs: CalculatorOutput = self.calculator(x, **gate_outputs)
         y = calc_outs.hidden_states
         y = y.reshape(original_shape + (self.output_size,))
@@ -1053,6 +1054,7 @@ class LlamaMoEDecoderLayer(nn.Module):
         past_key_value=None,
         output_attentions=False,
         use_cache=False,
+        gate_logit_output=False,
     ) -> tuple:
         residual = hidden_states
         hidden_states = self.input_layernorm(hidden_states)
@@ -1071,7 +1073,7 @@ class LlamaMoEDecoderLayer(nn.Module):
         # Fully Connected
         residual = hidden_states
         hidden_states = self.post_attention_layernorm(hidden_states)
-        mlp_outs: MoEMlpOutput = self.mlp(hidden_states)
+        mlp_outs: MoEMlpOutput = self.mlp(hidden_states, gate_logit_output=gate_logit_output)
         hidden_states = residual + mlp_outs.hidden_states
 
         outputs = (
@@ -1206,6 +1208,7 @@ class LlamaMoEModel(LlamaMoEPreTrainedModel):
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
+        gate_logit_output=False,
     ):
         output_attentions = (
             output_attentions
@@ -1315,6 +1318,7 @@ class LlamaMoEModel(LlamaMoEPreTrainedModel):
                     attention_mask,
                     position_ids,
                     None,
+                    gate_logit_output=gate_logit_output,
                 )
             else:
                 layer_outputs: tuple = decoder_layer(
@@ -1324,6 +1328,7 @@ class LlamaMoEModel(LlamaMoEPreTrainedModel):
                     past_key_value=past_key_value,
                     output_attentions=output_attentions,
                     use_cache=use_cache,
+                    gate_logit_output=gate_logit_output,
                 )
 
             hidden_states = layer_outputs[0]
@@ -1533,6 +1538,7 @@ class LlamaMoEForCausalLM(LlamaMoEPreTrainedModel):
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
+        gate_logit_output=False,
         **kwargs,
     ):
         output_attentions = (
@@ -1560,6 +1566,7 @@ class LlamaMoEForCausalLM(LlamaMoEPreTrainedModel):
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
+            gate_logit_output=gate_logit_output,
         )
 
         hidden_states = outputs.last_hidden_state
