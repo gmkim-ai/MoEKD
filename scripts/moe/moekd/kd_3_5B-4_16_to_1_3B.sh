@@ -62,7 +62,7 @@ OPTS+=" --warmup-iters 0"
 OPTS+=" --lr-decay-style cosine"
 OPTS+=" --weight-decay 1e-2"
 OPTS+=" --clip-grad 1.0"
-OPTS+=" --epochs 1"
+OPTS+=" --epochs 1" #10
 OPTS+=" --kd-ratio 0.5"
 # length
 OPTS+=" --max-length ${MAX_LENGTH}"
