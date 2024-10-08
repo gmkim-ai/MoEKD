@@ -8,6 +8,9 @@ def main():
     parser.add_argument('--label', default=None, help='metric type')
     args = parser.parse_args()
 
+    import pdb
+    pdb.set_trace()
+
     gate_files = [name for name in os.listdir(args.gate) if os.path.isfile(os.path.join(args.gate, name))]
     label_files = [name for name in os.listdir(args.label) if os.path.isfile(os.path.join(args.label, name))]
     assert len(gate_files) == len(label_files)
