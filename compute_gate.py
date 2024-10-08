@@ -8,16 +8,13 @@ def main():
     parser.add_argument('--label', default=None, help='metric type')
     args = parser.parse_args()
 
-    import pdb
-    pdb.set_trace()
-
     gate_files = [name for name in os.listdir(args.gate) if os.path.isfile(os.path.join(args.gate, name))]
     label_files = [name for name in os.listdir(args.label) if os.path.isfile(os.path.join(args.label, name))]
     assert len(gate_files) == len(label_files)
 
     for idx in range(len(gate_files)):
-        gate_logits = torch.load(os.path.join(args.gate, f"{idx}.pt"))
-        label = torch.load(os.path.join(args.label, f"{idx}.pt"))
+        gate_logits = torch.load(os.path.join(args.gate, f"{idx+1}.pt"))
+        label = torch.load(os.path.join(args.label, f"{idx+1}.pt"))
 
         import pdb
         pdb.set_trace()
