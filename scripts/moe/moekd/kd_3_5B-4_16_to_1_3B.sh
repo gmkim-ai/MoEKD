@@ -34,8 +34,13 @@ SAVE_PATH="${BASE_PATH}/results/moe/train/moekd/moekd_1_3B"
 # seed
 SEED=10
 
+# MoE KD
+NUM_SELECTS=5
+
 
 OPTS=""
+# moekd
+OPTS+=" --num-selects ${NUM_SELECTS}"
 # model
 OPTS+=" --base-path ${BASE_PATH}"
 OPTS+=" --model-path ${CKPT}"
@@ -62,7 +67,7 @@ OPTS+=" --warmup-iters 0"
 OPTS+=" --lr-decay-style cosine"
 OPTS+=" --weight-decay 1e-2"
 OPTS+=" --clip-grad 1.0"
-OPTS+=" --epochs 1" #10
+OPTS+=" --epochs 10" #10
 OPTS+=" --kd-ratio 0.5"
 # length
 OPTS+=" --max-length ${MAX_LENGTH}"
@@ -101,10 +106,11 @@ CMD="torchrun ${DISTRIBUTED_ARGS} ${BASE_PATH}/finetune.py ${OPTS} $@"
 echo ${CMD}
 echo "PYTHONPATH=${PYTHONPATH}"
 mkdir -p ${SAVE_PATH}
-while ! test -f ./results/moe/train/moekd/moekd_1_3B/e1-bs4-lr1e-05-G1-N4-NN1-kd0.5/best_rougeL/log.txt
-do
-    ${CMD}
-    sleep 20
-done
+${CMD}
+# while ! test -f ./results/moe/train/moekd/moekd_1_3B/e1-bs4-lr1e-05-G1-N4-NN1-kd0.5/best_rougeL/log.txt
+# do
+#     ${CMD}
+#     sleep 20
+# done
 
-bash scripts/moe/eval/run_eval.sh . results/moe/train/moekd/moekd_1_3B/e10-bs4-lr1e-05-G1-N4-NN1-kd0.5/best_rougeL 15035 llama ${GPUS_PER_NODE}
+bash scripts/moe/eval/run_eval.sh . results/moe/train/moekd/moekd_1_3B/e10-bs4-lr1e-05-G1-N4-NN1-kd0.5-ns${NUM_SELECTS}/best_rougeL 15035 llama ${GPUS_PER_NODE}
