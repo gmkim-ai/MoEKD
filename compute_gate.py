@@ -30,7 +30,7 @@ def main():
 
             # stack valid_top_logits to layer_top_logits
             layer_top_logits.append(valid_top_logits)
-        layer_top_logits = torch.stack(layer_top_logits, dim=0)
+        layer_top_logits = torch.cat(layer_top_logits, dim=0)
         layer_top_logits = layer_top_logits.mean(0)
         print(f"Layer {layer_idx+1} mean top logits: {layer_top_logits}")
 
