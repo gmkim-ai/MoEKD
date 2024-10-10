@@ -69,6 +69,8 @@ def get_teacher_model(args, ds_config, device):
             model.to(device)
             if args.num_selects is not None:
                 model.set_moe_num_selects(args.num_selects)
+            if args.moe_top_p is not None:
+                model.set_moe_top_p(args.moe_top_p)
         else:
             model = AutoModelForCausalLM.from_pretrained(
                 args.teacher_model_path, 

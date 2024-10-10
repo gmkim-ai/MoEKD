@@ -411,6 +411,7 @@ class TopKBalancedNoisyGate(nn.Module):
         self.input_size = input_size
         self.num_experts = num_experts
         self.num_selects = num_selects
+        self.top_p = None
 
         self.gate_network_type = gate_network
         self.gate_network = self.get_gate_network(gate_network, input_size, num_experts)
@@ -507,10 +508,15 @@ class TopKBalancedNoisyGate(nn.Module):
             gate_logits = logits #[2048=B*L, 16=num_experts]
         else:
             gate_logits = None
-
-        top_logits, top_indices = logits.topk(min(self.num_selects + 1, self.num_experts), dim=1)  # 选择并排序前k+1个权重 -> english: Select and sort the top k+1 weights
-        top_k_logits = top_logits[:, :self.num_selects]
-        top_k_indices = top_indices[:, :self.num_selects]
+        
+        if self.top_p is not None:
+            top_logits, top_indices = logits.topk(min(self.num_selects + 1, self.num_experts), dim=1)  # 选择并排序前k+1个权重 -> english: Select and sort the top k+1 weights
+            top_k_logits = top_logits[:, :self.num_selects]
+            top_k_indices = top_indices[:, :self.num_selects]
+        else:
+            top_logits, top_indices = logits.topk(min(self.num_selects + 1, self.num_experts), dim=1)  # 选择并排序前k+1个权重 -> english: Select and sort the top k+1 weights
+            top_k_logits = top_logits[:, :self.num_selects]
+            top_k_indices = top_indices[:, :self.num_selects]
         top_k_scores = self.softmax(top_k_logits.to(torch.float32)) if self.use_softmax else top_k_logits
         top_k_scores = top_k_scores.to(logits.dtype)
 
@@ -844,6 +850,14 @@ class BaseMoELayer(nn.Module):
             gate_logits=gate_outputs.get("gate_logits"),
         )
 
+    def set_top_p(self, top_p):
+        if "top_p" not in vars(self.gate):
+            raise KeyError(f'{self.gate_type} does not have a key named "top_p".')
+        elif top_p > 1.0 or top_p < 0.0:
+            raise ValueError('The value of "top_p" must satisfy "0.0 <= top_p <= 1.0"!')
+        else:
+            self.gate.top_p = top_p
+
     def set_num_selects(self, num_selects):
         if "num_selects" not in vars(self.gate):
             raise KeyError(f'{self.gate_type} does not have a key named "num_selects".')
@@ -1094,6 +1108,9 @@ class LlamaMoEDecoderLayer(nn.Module):
             outputs += (present_key_value,)
 
         return outputs
+
+    def set_moe_top_p(self, top_p):
+        self.mlp.set_top_p(top_p)
 
     def set_moe_num_selects(self, num_selects):
         self.mlp.set_num_selects(num_selects)
@@ -1443,6 +1460,10 @@ class LlamaMoEModel(LlamaMoEPreTrainedModel):
             "capacity_factor", 1.25
         )
 
+    def set_moe_top_p(self, top_p):
+        for idx, decoder_layer in enumerate(self.layers):
+            decoder_layer.set_moe_top_p(top_p)
+
     def set_moe_num_selects(self, num_selects):
         for idx, decoder_layer in enumerate(self.layers):
             decoder_layer.set_moe_num_selects(num_selects)
@@ -1653,6 +1674,9 @@ class LlamaMoEForCausalLM(LlamaMoEPreTrainedModel):
 
     def update_config(self):
         self.model.update_config()
+
+    def set_moe_top_p(self, top_p):
+        self.model.set_moe_top_p(top_p)
 
     def set_moe_num_selects(self, num_selects):
         self.model.set_moe_num_selects(num_selects)
