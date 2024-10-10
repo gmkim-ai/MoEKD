@@ -509,6 +509,9 @@ class TopKBalancedNoisyGate(nn.Module):
         else:
             gate_logits = None
         
+        import pdb
+        pdb.set_trace()
+
         if self.top_p is not None:
             top_logits, top_indices = torch.sort(logits, descending=True)
             cumulative_probs = torch.cumsum(F.softmax(top_logits.to(torch.float32), dim=-1), dim=-1)
