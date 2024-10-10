@@ -4,7 +4,7 @@ MASTER_ADDR=localhost
 MASTER_PORT=${2-15031}
 NNODES=1
 NODE_RANK=0
-GPUS_PER_NODE=${3-1}
+GPUS_PER_NODE=${3-4}
 
 DISTRIBUTED_ARGS="--nproc_per_node $GPUS_PER_NODE \
                   --nnodes $NNODES \

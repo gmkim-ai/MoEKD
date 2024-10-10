@@ -510,11 +510,17 @@ class TopKBalancedNoisyGate(nn.Module):
             gate_logits = None
         
         if self.top_p is not None:
-            import pdb
-            pdb.set_trace()
-            top_logits, top_indices = logits.topk(self.num_experts, dim=1)  # 选择并排序前k+1个权重 -> english: Select and sort the top k+1 weights
-            top_k_logits = top_logits[:, :self.num_selects]
-            top_k_indices = top_indices[:, :self.num_selects]
+            top_logits, top_indices = torch.sort(logits, descending=True)
+            cumulative_probs = torch.cumsum(F.softmax(top_logits.to(torch.float32), dim=-1), dim=-1)
+
+            sorted_indices_to_remove = cumulative_probs > self.top_p
+            sorted_indices_to_remove[..., 1:] = sorted_indices_to_remove[..., :-1].clone()
+            sorted_indices_to_remove[..., 0] = 0
+
+            top_logits[sorted_indices_to_remove] = -float('Inf')
+            #logits = torch.gather(top_logits, 1, top_indices.argsort(-1))
+            top_k_logits = top_logits
+            top_k_indices = top_indices
         else:
             top_logits, top_indices = logits.topk(min(self.num_selects + 1, self.num_experts), dim=1)  # 选择并排序前k+1个权重 -> english: Select and sort the top k+1 weights
             top_k_logits = top_logits[:, :self.num_selects]
