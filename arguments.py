@@ -294,7 +294,7 @@ def get_args():
             (f"{args.ckpt_name}" + f"-{args.peft_name}" if args.peft_name is not None else "" + \
              f"-{args.teacher_ckpt_name}" + f"-{args.teacher_peft_name}" if args.teacher_peft_name is not None else ""),
             (f"e{args.epochs}-bs{args.batch_size}-lr{args.lr}-G{args.gradient_accumulation_steps}-N{args.n_gpu}-NN{args.n_nodes}-kd{args.kd_ratio}") + \
-            (f"-ns{args.num_selects}" if (args.num_selects is not None and args.moe_top_p is None) else "") + \
+            (f"-topk{args.num_selects}" if (args.num_selects is not None and args.moe_top_p is None) else "") + \
             (f"-topp{args.moe_top_p}" if args.moe_top_p is not None else "") + \
             (f"-mp{args.model_parallel_size}" if args.model_parallel > 0 else "") + \
             (f"-lora-{args.peft_lora_r}-{args.peft_lora_alpha}-{args.peft_lora_dropout}" if args.peft == "lora" else "") + \
