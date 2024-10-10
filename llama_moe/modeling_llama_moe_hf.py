@@ -512,7 +512,7 @@ class TopKBalancedNoisyGate(nn.Module):
         if self.top_p is not None:
             import pdb
             pdb.set_trace()
-            top_logits, top_indices = logits.topk(min(self.num_selects + 1, self.num_experts), dim=1)  # 选择并排序前k+1个权重 -> english: Select and sort the top k+1 weights
+            top_logits, top_indices = logits.topk(self.num_experts, dim=1)  # 选择并排序前k+1个权重 -> english: Select and sort the top k+1 weights
             top_k_logits = top_logits[:, :self.num_selects]
             top_k_indices = top_indices[:, :self.num_selects]
         else:
