@@ -508,9 +508,6 @@ class TopKBalancedNoisyGate(nn.Module):
             gate_logits = logits #[2048=B*L, 16=num_experts]
         else:
             gate_logits = None
-        
-        import pdb
-        pdb.set_trace()
 
         if self.top_p is not None:
             top_logits, top_indices = torch.sort(logits, descending=True)
