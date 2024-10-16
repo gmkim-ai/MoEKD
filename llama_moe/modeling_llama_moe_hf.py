@@ -413,6 +413,7 @@ class TopKBalancedNoisyGate(nn.Module):
         self.num_selects = num_selects
         self.top_p = None
         self.num_repeats = None
+        self.old_num_selects = None
 
         self.gate_network_type = gate_network
         self.gate_network = self.get_gate_network(gate_network, input_size, num_experts)
@@ -530,7 +531,7 @@ class TopKBalancedNoisyGate(nn.Module):
         if self.num_repeats is not None:
             import pdb
             pdb.set_trace()
-            torch.multinomial(F.softmax(top_k_logits.to(torch.float32), dim=-1), 4)
+            torch.multinomial(F.softmax(top_k_logits.to(torch.float32), dim=-1), self.old_num_selects)
 
 
         top_k_scores = self.softmax(top_k_logits.to(torch.float32)) if self.use_softmax else top_k_logits
@@ -882,6 +883,12 @@ class BaseMoELayer(nn.Module):
         else:
             self.gate.top_p = top_p
 
+    def set_old_num_selects(self, old_num_selects):
+        if "old_num_selects" not in vars(self.gate):
+            raise KeyError(f'{self.gate_type} does not have a key named "old_num_selects".')
+        else:
+            self.gate.old_num_selects = old_num_selects
+
     def set_num_selects(self, num_selects):
         if "num_selects" not in vars(self.gate):
             raise KeyError(f'{self.gate_type} does not have a key named "num_selects".')
@@ -1138,6 +1145,9 @@ class LlamaMoEDecoderLayer(nn.Module):
 
     def set_moe_top_p(self, top_p):
         self.mlp.set_top_p(top_p)
+
+    def set_moe_old_num_selects(self, num_selects):
+        self.mlp.set_old_num_selects(num_selects)
 
     def set_moe_num_selects(self, num_selects):
         self.mlp.set_num_selects(num_selects)
@@ -1494,6 +1504,10 @@ class LlamaMoEModel(LlamaMoEPreTrainedModel):
     def set_moe_top_p(self, top_p):
         for idx, decoder_layer in enumerate(self.layers):
             decoder_layer.set_moe_top_p(top_p)
+    
+    def set_moe_old_num_selects(self, num_selects):
+        for idx, decoder_layer in enumerate(self.layers):
+            decoder_layer.set_moe_old_num_selects(num_selects)
 
     def set_moe_num_selects(self, num_selects):
         for idx, decoder_layer in enumerate(self.layers):
@@ -1711,6 +1725,9 @@ class LlamaMoEForCausalLM(LlamaMoEPreTrainedModel):
 
     def set_moe_top_p(self, top_p):
         self.model.set_moe_top_p(top_p)
+
+    def set_moe_old_num_selects(self, num_selects):
+        self.model.set_moe_old_num_selects(num_selects)
 
     def set_moe_num_selects(self, num_selects):
         self.model.set_moe_num_selects(num_selects)
