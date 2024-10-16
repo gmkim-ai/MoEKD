@@ -412,6 +412,7 @@ class TopKBalancedNoisyGate(nn.Module):
         self.num_experts = num_experts
         self.num_selects = num_selects
         self.top_p = None
+        self.num_repeats = None
 
         self.gate_network_type = gate_network
         self.gate_network = self.get_gate_network(gate_network, input_size, num_experts)
@@ -525,6 +526,11 @@ class TopKBalancedNoisyGate(nn.Module):
             top_logits, top_indices = logits.topk(min(self.num_selects + 1, self.num_experts), dim=1)  # 选择并排序前k+1个权重 -> english: Select and sort the top k+1 weights
             top_k_logits = top_logits[:, :self.num_selects]
             top_k_indices = top_indices[:, :self.num_selects]
+        
+        if self.num_repeats is not None:
+            
+
+
         top_k_scores = self.softmax(top_k_logits.to(torch.float32)) if self.use_softmax else top_k_logits
         top_k_scores = top_k_scores.to(logits.dtype)
 
@@ -857,6 +863,14 @@ class BaseMoELayer(nn.Module):
             gate_importance=gate_outputs.get("importance", torch.tensor(-1)),
             gate_logits=gate_outputs.get("gate_logits"),
         )
+    
+    def set_num_repeats(self, num_repeats):
+        if "num_repeats" not in vars(self.gate):
+            raise KeyError(f'{self.gate_type} does not have a key named "num_repeats".')
+        elif num_repeats <= 1:
+            raise ValueError('The value of "num_repeats" must be greater than 1!')
+        else:
+            self.gate.num_repeats = num_repeats
 
     def set_top_p(self, top_p):
         if "top_p" not in vars(self.gate):
@@ -1116,6 +1130,9 @@ class LlamaMoEDecoderLayer(nn.Module):
             outputs += (present_key_value,)
 
         return outputs
+
+    def set_moe_num_repeats(self, num_repeats):
+        self.mlp.set_num_repeats(num_repeats)
 
     def set_moe_top_p(self, top_p):
         self.mlp.set_top_p(top_p)
@@ -1468,6 +1485,10 @@ class LlamaMoEModel(LlamaMoEPreTrainedModel):
             "capacity_factor", 1.25
         )
 
+    def set_moe_num_repeats(self, num_repeats):
+        for idx, decoder_layer in enumerate(self.layers):
+            decoder_layer.set_moe_num_repeats(num_repeats)
+
     def set_moe_top_p(self, top_p):
         for idx, decoder_layer in enumerate(self.layers):
             decoder_layer.set_moe_top_p(top_p)
@@ -1682,6 +1703,9 @@ class LlamaMoEForCausalLM(LlamaMoEPreTrainedModel):
 
     def update_config(self):
         self.model.update_config()
+
+    def set_moe_num_repeats(self, num_repeats):
+        self.model.set_moe_num_repeats(num_repeats)
 
     def set_moe_top_p(self, top_p):
         self.model.set_moe_top_p(top_p)

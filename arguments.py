@@ -218,6 +218,7 @@ def add_moe_args(parser: argparse.ArgumentParser):
     
     group.add_argument("--num-selects", type=int, default=None)
     group.add_argument("--moe-top-p", type=float, default=None)
+    group.add_argument("--num-repeats", type=int, default=None)
     
     return parser
 
@@ -296,6 +297,7 @@ def get_args():
             (f"e{args.epochs}-bs{args.batch_size}-lr{args.lr}-G{args.gradient_accumulation_steps}-N{args.n_gpu}-NN{args.n_nodes}-kd{args.kd_ratio}") + \
             (f"-topk{args.num_selects}" if (args.num_selects is not None and args.moe_top_p is None) else "") + \
             (f"-topp{args.moe_top_p}" if args.moe_top_p is not None else "") + \
+            (f"-nr{args.num_repeats}" if args.num_repeats is not None else "") + \
             (f"-mp{args.model_parallel_size}" if args.model_parallel > 0 else "") + \
             (f"-lora-{args.peft_lora_r}-{args.peft_lora_alpha}-{args.peft_lora_dropout}" if args.peft == "lora" else "") + \
             args.save_additional_suffix

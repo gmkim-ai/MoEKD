@@ -72,6 +72,8 @@ def get_teacher_model(args, ds_config, device):
             if args.moe_top_p is not None:
                 model.set_moe_top_p(args.moe_top_p)
                 model.set_moe_num_selects(model.config.num_experts)
+            if args.num_repeats is not None:
+                model.set_moe_num_repeats(args.num_repeats)
         else:
             model = AutoModelForCausalLM.from_pretrained(
                 args.teacher_model_path, 
@@ -193,27 +195,53 @@ def prepare_dataset(args, tokenizer):
 
 
 def get_distil_loss(args, tokenizer, model, teacher_model, model_batch, no_model_batch, logits):
-    with torch.no_grad():
-        teacher_model.eval()
-        # if args.type == "moekd":
-        #     teacher_outputs = teacher_model(**model_batch, use_cache=False, gate_logit_output=True)
-        #     gate_logits = teacher_outputs.gate_logits #len: 32(layers), each shape [2048 * 16]
-        teacher_outputs = teacher_model(**model_batch, use_cache=False)
-        teacher_logits = teacher_outputs.logits
-    if args.model_parallel:
-        distil_losses = mpu.parallel_soft_cross_entropy_loss(logits.float(), teacher_logits.float())
-        distil_losses = distil_losses.view(-1)
-        loss_mask = no_model_batch["loss_mask"].view(-1)
-        distil_loss = (distil_losses * loss_mask).sum(-1) / loss_mask.sum(-1)
+    if args.num_repeats is not None:
+        distil_loss = 0
+        if args.model_parallel:
+            loss_mask = no_model_batch["loss_mask"].view(-1)
+        else:
+            inf_mask = torch.isinf(logits)
+            logprobs = F.log_softmax(logits, dim=-1, dtype=torch.float32)
+            mask = (no_model_batch["label"] != -100).int()
+        for _ in range(args.num_repeats):
+            with torch.no_grad():
+                teacher_model.eval()
+                # if args.type == "moekd":
+                #     teacher_outputs = teacher_model(**model_batch, use_cache=False, gate_logit_output=True)
+                #     gate_logits = teacher_outputs.gate_logits #len: 32(layers), each shape [2048 * 16]
+                teacher_outputs = teacher_model(**model_batch, use_cache=False)
+                teacher_logits = teacher_outputs.logits
+            if args.model_parallel:
+                distil_losses = mpu.parallel_soft_cross_entropy_loss(logits.float(), teacher_logits.float())
+                distil_losses = distil_losses.view(-1)
+                distil_loss += (distil_losses * loss_mask).sum(-1) / loss_mask.sum(-1)
+            else:
+                teacher_probs = F.softmax(teacher_logits, dim=-1, dtype=torch.float32)  # [B, L, V]
+                prod_probs = torch.masked_fill(teacher_probs * logprobs, inf_mask, 0)
+                x = torch.sum(prod_probs, dim=-1).view(-1)
+                distil_loss += -torch.sum(x * mask.view(-1), dim=0) / torch.sum(mask.view(-1), dim=0)
+        distil_loss /= args.num_repeats
     else:
-        teacher_probs = F.softmax(teacher_logits, dim=-1, dtype=torch.float32)  # [B, L, V]
-        inf_mask = torch.isinf(logits)
-        logprobs = F.log_softmax(logits, dim=-1, dtype=torch.float32)
-        prod_probs = torch.masked_fill(teacher_probs * logprobs, inf_mask, 0)
-        x = torch.sum(prod_probs, dim=-1).view(-1)
-        mask = (no_model_batch["label"] != -100).int()
-        distil_loss = -torch.sum(x * mask.view(-1), dim=0) / torch.sum(mask.view(-1), dim=0)
-    
+        with torch.no_grad():
+            teacher_model.eval()
+            # if args.type == "moekd":
+            #     teacher_outputs = teacher_model(**model_batch, use_cache=False, gate_logit_output=True)
+            #     gate_logits = teacher_outputs.gate_logits #len: 32(layers), each shape [2048 * 16]
+            teacher_outputs = teacher_model(**model_batch, use_cache=False)
+            teacher_logits = teacher_outputs.logits
+        if args.model_parallel:
+            distil_losses = mpu.parallel_soft_cross_entropy_loss(logits.float(), teacher_logits.float())
+            distil_losses = distil_losses.view(-1)
+            loss_mask = no_model_batch["loss_mask"].view(-1)
+            distil_loss = (distil_losses * loss_mask).sum(-1) / loss_mask.sum(-1)
+        else:
+            teacher_probs = F.softmax(teacher_logits, dim=-1, dtype=torch.float32)  # [B, L, V]
+            inf_mask = torch.isinf(logits)
+            logprobs = F.log_softmax(logits, dim=-1, dtype=torch.float32)
+            prod_probs = torch.masked_fill(teacher_probs * logprobs, inf_mask, 0)
+            x = torch.sum(prod_probs, dim=-1).view(-1)
+            mask = (no_model_batch["label"] != -100).int()
+            distil_loss = -torch.sum(x * mask.view(-1), dim=0) / torch.sum(mask.view(-1), dim=0)
     # if args.type == "moekd":
     #     return distil_loss, gate_logits
     return distil_loss
