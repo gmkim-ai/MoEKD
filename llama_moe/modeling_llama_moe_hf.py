@@ -530,6 +530,7 @@ class TopKBalancedNoisyGate(nn.Module):
         if self.num_repeats is not None:
             import pdb
             pdb.set_trace()
+            torch.multinomial(F.softmax(top_k_logits.to(torch.float32), dim=-1), 4)
 
 
         top_k_scores = self.softmax(top_k_logits.to(torch.float32)) if self.use_softmax else top_k_logits

@@ -68,6 +68,8 @@ def get_teacher_model(args, ds_config, device):
             model = LlamaMoEForCausalLM.from_pretrained(args.teacher_model_path, torch_dtype=torch.bfloat16)
             model.to(device)
             if args.num_selects is not None:
+                import pdb
+                pdb.set_trace()
                 model.set_moe_num_selects(args.num_selects)
             if args.moe_top_p is not None:
                 model.set_moe_top_p(args.moe_top_p)
