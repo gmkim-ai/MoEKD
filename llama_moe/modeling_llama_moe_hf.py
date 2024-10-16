@@ -528,7 +528,8 @@ class TopKBalancedNoisyGate(nn.Module):
             top_k_indices = top_indices[:, :self.num_selects]
         
         if self.num_repeats is not None:
-            
+            import pdb
+            pdb.set_trace()
 
 
         top_k_scores = self.softmax(top_k_logits.to(torch.float32)) if self.use_softmax else top_k_logits
