@@ -529,10 +529,12 @@ class TopKBalancedNoisyGate(nn.Module):
             top_k_indices = top_indices[:, :self.num_selects]
         
         if self.num_repeats is not None:
-            import pdb
-            pdb.set_trace()
-            torch.multinomial(F.softmax(top_k_logits.to(torch.float32), dim=-1), self.old_num_selects)
-
+            sampled_indices_to_use = torch.multinomial(F.softmax(top_k_logits.to(torch.float32), dim=-1), self.old_num_selects)
+            top_k_logits = torch.gather(top_k_logits, 1, sampled_indices_to_use)
+            top_k_indices = torch.gather(top_k_indices, 1, sampled_indices_to_use)
+            # sampled_indices_to_remove = torch.ones_like(top_k_logits)
+            # sampled_indices_to_remove = sampled_indices_to_remove.scatter(1, sampled_indices_to_use, 0)
+            # top_k_logits[sampled_indices_to_remove.bool()] = -float('Inf') 
 
         top_k_scores = self.softmax(top_k_logits.to(torch.float32)) if self.use_softmax else top_k_logits
         top_k_scores = top_k_scores.to(logits.dtype)
