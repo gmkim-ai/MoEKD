@@ -75,7 +75,6 @@ def get_teacher_model(args, ds_config, device):
                 model.set_moe_num_selects(model.config.num_experts)
             if args.num_repeats is not None:
                 model.set_moe_num_repeats(args.num_repeats)
-                model.set_moe_random_seed(args.seed)
                 if args.sampling_prob is not None:
                     model.set_moe_sampling_prob(args.sampling_prob)
         else:
