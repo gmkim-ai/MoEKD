@@ -67,14 +67,17 @@ def get_teacher_model(args, ds_config, device):
             from llama_moe.modeling_llama_moe_hf import LlamaMoEForCausalLM
             model = LlamaMoEForCausalLM.from_pretrained(args.teacher_model_path, torch_dtype=torch.bfloat16)
             model.to(device)
+            model.set_moe_old_num_selects(model.model.layers[0].mlp.num_selects)
             if args.num_selects is not None:
-                model.set_moe_old_num_selects(model.model.layers[0].mlp.num_selects)
                 model.set_moe_num_selects(args.num_selects)
             if args.moe_top_p is not None:
                 model.set_moe_top_p(args.moe_top_p)
                 model.set_moe_num_selects(model.config.num_experts)
             if args.num_repeats is not None:
                 model.set_moe_num_repeats(args.num_repeats)
+                model.set_moe_random_seed(args.seed)
+                if args.sampling_prob is not None:
+                    model.set_moe_sampling_prob(args.sampling_prob)
         else:
             model = AutoModelForCausalLM.from_pretrained(
                 args.teacher_model_path, 

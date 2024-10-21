@@ -414,6 +414,9 @@ class TopKBalancedNoisyGate(nn.Module):
         self.top_p = None
         self.num_repeats = None
         self.old_num_selects = None
+        self.seed = None
+        self.generator = None
+        self.sampling_prob = None
 
         self.gate_network_type = gate_network
         self.gate_network = self.get_gate_network(gate_network, input_size, num_experts)
@@ -527,11 +530,20 @@ class TopKBalancedNoisyGate(nn.Module):
             top_logits, top_indices = logits.topk(min(self.num_selects + 1, self.num_experts), dim=1)  # 选择并排序前k+1个权重 -> english: Select and sort the top k+1 weights
             top_k_logits = top_logits[:, :self.num_selects]
             top_k_indices = top_indices[:, :self.num_selects]
-        
+
         if self.num_repeats is not None:
-            sampled_indices_to_use = torch.multinomial(F.softmax(top_k_logits.to(torch.float32), dim=-1), self.old_num_selects)
-            top_k_logits = torch.gather(top_k_logits, 1, sampled_indices_to_use)
-            top_k_indices = torch.gather(top_k_indices, 1, sampled_indices_to_use)
+            if self.sampling_prob is None:
+                sampled_indices_to_use = torch.multinomial(F.softmax(top_k_logits.to(torch.float32), dim=-1), self.old_num_selects, generator=self.generator)
+                top_k_logits = torch.gather(top_k_logits, 1, sampled_indices_to_use)
+                top_k_indices = torch.gather(top_k_indices, 1, sampled_indices_to_use)
+            else:
+                sampled_prob = torch.rand(1, generator=self.generator).item()
+                print(sampled_prob)
+                if sampled_prob < self.sampling_prob:
+                    print("We enter in the sampling_prob!")
+                    sampled_indices_to_use = torch.multinomial(F.softmax(top_k_logits.to(torch.float32), dim=-1), self.old_num_selects, generator=self.generator)
+                    top_k_logits = torch.gather(top_k_logits, 1, sampled_indices_to_use)
+                    top_k_indices = torch.gather(top_k_indices, 1, sampled_indices_to_use)
             # sampled_indices_to_remove = torch.ones_like(top_k_logits)
             # sampled_indices_to_remove = sampled_indices_to_remove.scatter(1, sampled_indices_to_use, 0)
             # top_k_logits[sampled_indices_to_remove.bool()] = -float('Inf') 
@@ -869,6 +881,19 @@ class BaseMoELayer(nn.Module):
             gate_logits=gate_outputs.get("gate_logits"),
         )
     
+    def set_random_seed(self, seed):
+        if "seed" not in vars(self.gate):
+            raise KeyError(f'{self.gate_type} does not have a key named "seed".')
+        else:
+            self.gate.seed = seed
+            self.gate.generator = torch.Generator(device=self.gate.weight_noise.weight.data.device).manual_seed(seed)
+    
+    def set_sampling_prob(self, sampling_prob):
+        if "sampling_prob" not in vars(self.gate):
+            raise KeyError(f'{self.gate_type} does not have a key named "sampling_prob".')
+        else:
+            self.gate.sampling_prob = sampling_prob
+
     def set_num_repeats(self, num_repeats):
         if "num_repeats" not in vars(self.gate):
             raise KeyError(f'{self.gate_type} does not have a key named "num_repeats".')
@@ -1141,6 +1166,12 @@ class LlamaMoEDecoderLayer(nn.Module):
             outputs += (present_key_value,)
 
         return outputs
+
+    def set_moe_sampling_prob(self, sampling_prob):
+        self.mlp.set_sampling_prob(sampling_prob)
+
+    def set_moe_random_seed(self, random_seed):
+        self.mlp.set_random_seed(random_seed)
 
     def set_moe_num_repeats(self, num_repeats):
         self.mlp.set_num_repeats(num_repeats)
@@ -1499,6 +1530,14 @@ class LlamaMoEModel(LlamaMoEPreTrainedModel):
             "capacity_factor", 1.25
         )
 
+    def set_moe_random_seed(self, random_seed):
+        for idx, decoder_layer in enumerate(self.layers):
+            decoder_layer.set_moe_random_seed(random_seed)
+
+    def set_moe_sampling_prob(self, sampling_prob):
+        for idx, decoder_layer in enumerate(self.layers):
+            decoder_layer.set_moe_sampling_prob(sampling_prob)
+
     def set_moe_num_repeats(self, num_repeats):
         for idx, decoder_layer in enumerate(self.layers):
             decoder_layer.set_moe_num_repeats(num_repeats)
@@ -1721,6 +1760,12 @@ class LlamaMoEForCausalLM(LlamaMoEPreTrainedModel):
 
     def update_config(self):
         self.model.update_config()
+
+    def set_moe_random_seed(self, random_seed):
+        self.model.set_moe_random_seed(random_seed)
+
+    def set_moe_sampling_prob(self, sampling_prob):
+        self.model.set_moe_sampling_prob(sampling_prob)
 
     def set_moe_num_repeats(self, num_repeats):
         self.model.set_moe_num_repeats(num_repeats)
