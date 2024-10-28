@@ -531,9 +531,8 @@ class TopKBalancedNoisyGate(nn.Module):
                 top_k_logits = top_logits[:, :self.num_selects]
                 top_k_indices = top_indices[:, :self.num_selects]
         else:
-            import pdb
-            pdb.set_trace()
-            top_k_logits, top_k_indices = logits.topk(self.num_experts, dim=1)  # 选择并排序前k+1个权重 -> english: Select and sort the top k+1 weights
+            top_k_logits = logits
+            top_k_indices = torch.LongTensor(range(self.num_experts)).to(logits.device).repeat(logits.shape[0], 1)
             num_selects = self.new_num_selects if self.new_num_selects is not None else self.old_num_selects
             if self.sampling_prob is None:
                 sampled_indices_to_use = torch.multinomial(F.softmax(top_k_logits.to(torch.float32), dim=-1), num_selects)
