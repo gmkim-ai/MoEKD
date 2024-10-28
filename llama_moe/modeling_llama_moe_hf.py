@@ -531,18 +531,18 @@ class TopKBalancedNoisyGate(nn.Module):
                 top_k_logits = top_logits[:, :self.num_selects]
                 top_k_indices = top_indices[:, :self.num_selects]
         else:
-            import pdb
-            pdb.set_trace()
             num_selects = self.new_num_selects if self.new_num_selects is not None else self.old_num_selects
             if self.sampling_prob is None:
                 sampled_indices_to_use = torch.multinomial(F.softmax(logits.to(torch.float32), dim=-1), num_selects)
-                top_k_logits = torch.gather(top_k_logits, 1, sampled_indices_to_use)
+                top_k_logits = torch.gather(logits, 1, sampled_indices_to_use)
                 top_k_indices = torch.gather(torch.LongTensor(range(self.num_experts)).to(logits.device).repeat(logits.shape[0], 1), 1, sampled_indices_to_use)
             else:
                 sampled_prob = torch.rand(1).item()
                 if sampled_prob < self.sampling_prob:
+                    import pdb
+                    pdb.set_trace()
                     sampled_indices_to_use = torch.multinomial(F.softmax(logits.to(torch.float32), dim=-1), num_selects)
-                    top_k_logits = torch.gather(top_k_logits, 1, sampled_indices_to_use)
+                    top_k_logits = torch.gather(logits, 1, sampled_indices_to_use)
                     top_k_indices = torch.gather(torch.LongTensor(range(self.num_experts)).to(logits.device).repeat(logits.shape[0], 1), 1, sampled_indices_to_use)
                 else:
                     if self.top_p is not None:
