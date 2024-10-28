@@ -4,7 +4,7 @@ MASTER_ADDR=localhost
 MASTER_PORT=${2-2012}
 NNODES=1
 NODE_RANK=0
-GPUS_PER_NODE=${3-4}
+GPUS_PER_NODE=${3-1}
 
 DISTRIBUTED_ARGS="--nproc_per_node $GPUS_PER_NODE \
                   --nnodes $NNODES \
@@ -35,7 +35,7 @@ SAVE_PATH="${BASE_PATH}/results/moe/train/moekd/moekd_1_3B"
 SEED=10
 
 # MoE KD
-NUM_SELECTS=16
+NUM_SELECTS=15
 NUM_REPEATS=2
 SAMPLING_PROB=0.05
 NEW_NUM_SELECTS=15
