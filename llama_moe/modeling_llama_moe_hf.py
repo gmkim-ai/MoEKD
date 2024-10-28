@@ -531,19 +531,19 @@ class TopKBalancedNoisyGate(nn.Module):
                 top_k_logits = top_logits[:, :self.num_selects]
                 top_k_indices = top_indices[:, :self.num_selects]
         else:
-            top_k_logits = logits
-            top_k_indices = torch.LongTensor(range(self.num_experts)).to(logits.device).repeat(logits.shape[0], 1)
+            import pdb
+            pdb.set_trace()
             num_selects = self.new_num_selects if self.new_num_selects is not None else self.old_num_selects
             if self.sampling_prob is None:
-                sampled_indices_to_use = torch.multinomial(F.softmax(top_k_logits.to(torch.float32), dim=-1), num_selects)
+                sampled_indices_to_use = torch.multinomial(F.softmax(logits.to(torch.float32), dim=-1), num_selects)
                 top_k_logits = torch.gather(top_k_logits, 1, sampled_indices_to_use)
-                top_k_indices = torch.gather(top_k_indices, 1, sampled_indices_to_use)
+                top_k_indices = torch.gather(torch.LongTensor(range(self.num_experts)).to(logits.device).repeat(logits.shape[0], 1), 1, sampled_indices_to_use)
             else:
                 sampled_prob = torch.rand(1).item()
                 if sampled_prob < self.sampling_prob:
-                    sampled_indices_to_use = torch.multinomial(F.softmax(top_k_logits.to(torch.float32), dim=-1), num_selects)
+                    sampled_indices_to_use = torch.multinomial(F.softmax(logits.to(torch.float32), dim=-1), num_selects)
                     top_k_logits = torch.gather(top_k_logits, 1, sampled_indices_to_use)
-                    top_k_indices = torch.gather(top_k_indices, 1, sampled_indices_to_use)
+                    top_k_indices = torch.gather(torch.LongTensor(range(self.num_experts)).to(logits.device).repeat(logits.shape[0], 1), 1, sampled_indices_to_use)
                 else:
                     if self.top_p is not None:
                         top_logits, top_indices = torch.sort(logits, descending=True)
@@ -564,7 +564,6 @@ class TopKBalancedNoisyGate(nn.Module):
             # sampled_indices_to_remove = torch.ones_like(top_k_logits)
             # sampled_indices_to_remove = sampled_indices_to_remove.scatter(1, sampled_indices_to_use, 0)
             # top_k_logits[sampled_indices_to_remove.bool()] = -float('Inf') 
-            print(sampled_prob, top_k_logits.shape)
         top_k_scores = self.softmax(top_k_logits.to(torch.float32)) if self.use_softmax else top_k_logits
         top_k_scores = top_k_scores.to(logits.dtype)
 
