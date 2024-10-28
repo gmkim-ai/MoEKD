@@ -77,6 +77,8 @@ def get_teacher_model(args, ds_config, device):
                 model.set_moe_num_repeats(args.num_repeats)
                 if args.sampling_prob is not None:
                     model.set_moe_sampling_prob(args.sampling_prob)
+                if args.new_num_selects is not None:
+                    model.set_moe_new_num_selects(args.new_num_selects)
         else:
             model = AutoModelForCausalLM.from_pretrained(
                 args.teacher_model_path, 
