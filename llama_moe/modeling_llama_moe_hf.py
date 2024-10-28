@@ -539,8 +539,6 @@ class TopKBalancedNoisyGate(nn.Module):
             else:
                 sampled_prob = torch.rand(1).item()
                 if sampled_prob < self.sampling_prob:
-                    import pdb
-                    pdb.set_trace()
                     sampled_indices_to_use = torch.multinomial(F.softmax(logits.to(torch.float32), dim=-1), num_selects)
                     top_k_logits = torch.gather(logits, 1, sampled_indices_to_use)
                     top_k_indices = torch.gather(torch.LongTensor(range(self.num_experts)).to(logits.device).repeat(logits.shape[0], 1), 1, sampled_indices_to_use)
