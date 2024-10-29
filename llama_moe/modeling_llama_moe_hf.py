@@ -537,28 +537,51 @@ class TopKBalancedNoisyGate(nn.Module):
                 top_k_logits = torch.gather(logits, 1, sampled_indices_to_use)
                 top_k_indices = torch.gather(torch.LongTensor(range(self.num_experts)).to(logits.device).repeat(logits.shape[0], 1), 1, sampled_indices_to_use)
             else:
-                sampled_prob = torch.rand(1).item()
-                if sampled_prob < self.sampling_prob:
-                    sampled_indices_to_use = torch.multinomial(F.softmax(logits.to(torch.float32), dim=-1), num_selects)
-                    top_k_logits = torch.gather(logits, 1, sampled_indices_to_use)
-                    top_k_indices = torch.gather(torch.LongTensor(range(self.num_experts)).to(logits.device).repeat(logits.shape[0], 1), 1, sampled_indices_to_use)
+                sampled_indices_to_use = torch.multinomial(F.softmax(logits.to(torch.float32), dim=-1), num_selects)
+                sampling_logits = torch.gather(logits, 1, sampled_indices_to_use)
+                sampling_indices = torch.gather(torch.LongTensor(range(self.num_experts)).to(logits.device).repeat(logits.shape[0], 1), 1, sampled_indices_to_use)
+                if self.top_p is not None:
+                    top_logits, top_indices = torch.sort(logits, descending=True)
+                    cumulative_probs = torch.cumsum(F.softmax(top_logits.to(torch.float32), dim=-1), dim=-1)
+
+                    sorted_indices_to_remove = cumulative_probs > self.top_p
+                    sorted_indices_to_remove[..., 1:] = sorted_indices_to_remove[..., :-1].clone()
+                    sorted_indices_to_remove[..., 0] = 0
+
+                    top_logits[sorted_indices_to_remove] = -float('Inf')
+                    #logits = torch.gather(top_logits, 1, top_indices.argsort(-1))
+                    top_k_logits = top_logits
+                    top_k_indices = top_indices
                 else:
-                    if self.top_p is not None:
-                        top_logits, top_indices = torch.sort(logits, descending=True)
-                        cumulative_probs = torch.cumsum(F.softmax(top_logits.to(torch.float32), dim=-1), dim=-1)
+                    top_logits, top_indices = logits.topk(min(self.num_selects + 1, self.num_experts), dim=1)  # 选择并排序前k+1个权重 -> english: Select and sort the top k+1 weights
+                    top_k_logits = top_logits[:, :self.num_selects]
+                    top_k_indices = top_indices[:, :self.num_selects]
+                    
+                sampled_prob = torch.rand(sampling_logits.shape[0], 1).repeat(1, sampling_logits.shape[1]).to(sampling_logits.device)
+                top_k_logits = torch.where(sampled_prob < self.sampling_prob, sampling_logits, top_k_logits)
+                top_k_indices = torch.where(sampled_prob < self.sampling_prob, sampling_indices, top_k_indices)
+                # sampled_prob = torch.rand(1).item()
+                # if sampled_prob < self.sampling_prob:
+                #     sampled_indices_to_use = torch.multinomial(F.softmax(logits.to(torch.float32), dim=-1), num_selects)
+                #     top_k_logits = torch.gather(logits, 1, sampled_indices_to_use)
+                #     top_k_indices = torch.gather(torch.LongTensor(range(self.num_experts)).to(logits.device).repeat(logits.shape[0], 1), 1, sampled_indices_to_use)
+                # else:
+                #     if self.top_p is not None:
+                #         top_logits, top_indices = torch.sort(logits, descending=True)
+                #         cumulative_probs = torch.cumsum(F.softmax(top_logits.to(torch.float32), dim=-1), dim=-1)
 
-                        sorted_indices_to_remove = cumulative_probs > self.top_p
-                        sorted_indices_to_remove[..., 1:] = sorted_indices_to_remove[..., :-1].clone()
-                        sorted_indices_to_remove[..., 0] = 0
+                #         sorted_indices_to_remove = cumulative_probs > self.top_p
+                #         sorted_indices_to_remove[..., 1:] = sorted_indices_to_remove[..., :-1].clone()
+                #         sorted_indices_to_remove[..., 0] = 0
 
-                        top_logits[sorted_indices_to_remove] = -float('Inf')
-                        #logits = torch.gather(top_logits, 1, top_indices.argsort(-1))
-                        top_k_logits = top_logits
-                        top_k_indices = top_indices
-                    else:
-                        top_logits, top_indices = logits.topk(min(self.num_selects + 1, self.num_experts), dim=1)  # 选择并排序前k+1个权重 -> english: Select and sort the top k+1 weights
-                        top_k_logits = top_logits[:, :self.num_selects]
-                        top_k_indices = top_indices[:, :self.num_selects]
+                #         top_logits[sorted_indices_to_remove] = -float('Inf')
+                #         #logits = torch.gather(top_logits, 1, top_indices.argsort(-1))
+                #         top_k_logits = top_logits
+                #         top_k_indices = top_indices
+                #     else:
+                #         top_logits, top_indices = logits.topk(min(self.num_selects + 1, self.num_experts), dim=1)  # 选择并排序前k+1个权重 -> english: Select and sort the top k+1 weights
+                #         top_k_logits = top_logits[:, :self.num_selects]
+                #         top_k_indices = top_indices[:, :self.num_selects]
             # sampled_indices_to_remove = torch.ones_like(top_k_logits)
             # sampled_indices_to_remove = sampled_indices_to_remove.scatter(1, sampled_indices_to_use, 0)
             # top_k_logits[sampled_indices_to_remove.bool()] = -float('Inf') 
