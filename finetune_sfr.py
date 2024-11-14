@@ -64,6 +64,7 @@ def get_teacher_model(args, ds_config, device):
         model = model.to(device)
     else:
         config.is_model_parallel = False
+        config.gate_add_noise = False
         if args.teacher_model_type == "moe":
             from llama_moe.modeling_llama_moe_hf import LlamaMoEForCausalLM
             model = LlamaMoEForCausalLM.from_pretrained(args.teacher_model_path, torch_dtype=torch.bfloat16)
@@ -331,9 +332,6 @@ def get_teacher_lm_loss(args, tokenizer, model, teacher_model, model_batch):
 def finetune(args, tokenizer: AutoTokenizer, model: deepspeed.DeepSpeedEngine, optimizer: AdamW, lr_scheduler, dataset, device, teacher_model=None):
     print_rank("Start Fine-tuning")
 
-    import pdb
-    pdb.set_trace()
-
     # print_inspect(model, '*')
     if args.model_parallel:
         dp_world_size = mpu.get_data_parallel_world_size()
@@ -426,6 +424,9 @@ def finetune(args, tokenizer: AutoTokenizer, model: deepspeed.DeepSpeedEngine, o
                     s_no_model_batch["loss_mask"][i][:input_len-1] = 1.0
                     s_no_model_batch["loss_mask"][i][:source_len-1] = 0
             dataset["train"].move_to_device(s_model_batch, s_no_model_batch, gen_data, device)
+
+            import pdb
+            pdb.set_trace()
 
             ### Training Teacher ###
             teacher_model.train()
