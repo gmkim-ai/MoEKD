@@ -170,7 +170,51 @@ def setup_model_and_optimizer(args, ds_config, device, set_optim=True):
         import copy
         ds_config['bf16']=copy.deepcopy(ds_config['fp16'])
         ds_config['fp16']['enabled']=False
+    model, optimizer, _, lr_scheduler = deepspeed.initialize(
+        model=model,
+        optimizer=optimizer,
+        args=args,
+        lr_scheduler=lr_scheduler,
+        mpu=mpu if args.model_parallel else None,
+        config_params=ds_config
+    )
     
+    # get the memory usage
+    print_rank("Model mem\n", torch.cuda.memory_summary())
+    return model, optimizer, lr_scheduler
+
+
+def setup_teacher_model_and_optimizer(args, ds_config, device, set_optim=True):
+    # get the teacher model
+    model = get_teacher_model(args, ds_config, device)
+    # get the optimizer and lr_scheduler
+    if set_optim:
+        while isinstance(model, DDP):
+            model = model.module
+
+        import pdb
+        pdb.set_trace()
+        for params in model.parameters():
+            params.requires_grad = False
+            model.encoder.block.freeze_pretrained()
+            model.decoder.block.freeze_pretrained()
+
+        if args.teacher_peft is not None:
+            param_groups = get_optimizer_params_peft(args, model)
+        else:
+            param_groups = get_optimizer_params(args, model)
+
+        # Use AdamW.
+        optimizer = AdamW(param_groups, lr=args.teacher_lr, weight_decay=args.weight_decay)
+        print_rank(f'Teacher Optimizer = {optimizer.__class__.__name__}')
+        lr_scheduler = get_learning_rate_scheduler(args, optimizer)
+    else:
+        optimizer, lr_scheduler = None, None
+
+    if args.model_type=="qwen" and ds_config['fp16']['enabled']==True:
+        import copy
+        ds_config['bf16']=copy.deepcopy(ds_config['fp16'])
+        ds_config['fp16']['enabled']=False
     model, optimizer, _, lr_scheduler = deepspeed.initialize(
         model=model,
         optimizer=optimizer,
@@ -313,6 +357,20 @@ def finetune(args, tokenizer: AutoTokenizer, model: deepspeed.DeepSpeedEngine, o
     train_dataloader = DataLoader(
         dataset['train'], sampler=sampler, batch_size=args.batch_size, num_workers=args.num_workers, collate_fn=dataset["train"].collate)
 
+    generation_config = GenerationConfig(
+        do_sample=args.do_sample,
+        top_p=args.top_p,
+        top_k=args.top_k,
+        temperature=args.temperature,
+        repetition_penalty=args.repetition_penalty,
+        max_length=args.max_length,
+        min_length=None,
+        eos_token_id=tokenizer.eos_token_id,
+        pad_token_id=tokenizer.eos_token_id,
+        return_dict_in_generate=True,
+        output_scores=False
+    )
+
     step, global_step = 1, 1
     total_loss, total_distil_loss, total_time = 0.0, 0.0, 0.0
     best_eval = 0.0
@@ -444,7 +502,7 @@ def finetune(args, tokenizer: AutoTokenizer, model: deepspeed.DeepSpeedEngine, o
     return model
 
 
-def evaluate(args, tokenizer, model, dataset: LMTrainDataset, split, epoch, device, best_eval=None):
+def evaluate(args, tokenizer, model, dataset: LMTrainDataset, split, epoch, device, best_eval=None, teacher_model=None):
     
     collate_fn = dataset.collate
 
@@ -637,7 +695,8 @@ def main():
         args.teacher_model_type = args.model_type
     
     if args.teacher_model_path is not None:
-        teacher_model = get_teacher_model(args, ds_config, device)
+        teacher_model, teacher_optimizer, teacher_lr_scheduler = setup_teacher_model_and_optimizer(args, ds_config, device, set_optim=args.do_train)
+        #teacher_model = get_teacher_model(args, ds_config, device)
     else:
         teacher_model = None
     
