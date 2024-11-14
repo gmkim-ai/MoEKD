@@ -514,9 +514,6 @@ class TopKBalancedNoisyGate(nn.Module):
         else:
             gate_logits = None
 
-        import pdb
-        pdb.set_trace()
-
         if self.num_repeats is None:
             if self.top_p is not None:
                 top_logits, top_indices = torch.sort(logits, descending=True)
