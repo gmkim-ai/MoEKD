@@ -69,7 +69,6 @@ def get_teacher_model(args, ds_config, device):
             model = LlamaMoEForCausalLM.from_pretrained(args.teacher_model_path, torch_dtype=torch.bfloat16)
             model.to(device)
             model.set_moe_old_num_selects(model.model.layers[0].mlp.num_selects)
-            model.set_moe_gate_add_noise(False)
             if args.num_selects is not None:
                 model.set_moe_num_selects(args.num_selects)
             if args.moe_top_p is not None:
@@ -185,50 +184,6 @@ def setup_model_and_optimizer(args, ds_config, device, set_optim=True):
     print_rank("Model mem\n", torch.cuda.memory_summary())
     return model, optimizer, lr_scheduler
 
-
-def setup_teacher_model_and_optimizer(args, ds_config, device, set_optim=True):
-    # get the teacher model
-    model = get_teacher_model(args, ds_config, device)
-    # get the optimizer and lr_scheduler
-    if set_optim:
-        while isinstance(model, DDP):
-            model = model.module
-        
-        for params in model.parameters():
-            params.requires_grad = False
-
-        num_layer = len(model.model.layers)
-        for i in range(num_layer):
-            for params in model.model.layers[i].mlp.gate.gate_network.parameters():
-                params.requires_grad = True
-
-        param_groups = get_optimizer_params_peft(args, model)
-
-        # Use AdamW.
-        optimizer = AdamW(param_groups, lr=args.teacher_lr, weight_decay=args.weight_decay)
-        print_rank(f'Teacher Optimizer = {optimizer.__class__.__name__}')
-        lr_scheduler = get_learning_rate_scheduler(args, optimizer)
-    else:
-        optimizer, lr_scheduler = None, None
-
-    if args.model_type=="qwen" and ds_config['fp16']['enabled']==True:
-        import copy
-        ds_config['bf16']=copy.deepcopy(ds_config['fp16'])
-        ds_config['fp16']['enabled']=False
-    model, optimizer, _, lr_scheduler = deepspeed.initialize(
-        model=model,
-        optimizer=optimizer,
-        args=args,
-        lr_scheduler=lr_scheduler,
-        mpu=mpu if args.model_parallel else None,
-        config_params=ds_config
-    )
-    
-    # get the memory usage
-    print_rank("Model mem\n", torch.cuda.memory_summary())
-    return model, optimizer, lr_scheduler
-
-
 def prepare_dataset(args, tokenizer):
     data = {}
     rng_sample = random.Random(args.seed)
@@ -249,40 +204,25 @@ def get_distil_loss(args, tokenizer, model, teacher_model, model_batch, no_model
         teacher_outputs = teacher_model(**model_batch, use_cache=False)
         teacher_logits = teacher_outputs.logits
 
-    if (is_teacher and args.teacher_kld_type == "forward"):
-        if args.model_parallel:
-            distil_losses = mpu.parallel_soft_cross_entropy_loss(logits.float(), teacher_logits.float())
-            distil_losses = distil_losses.view(-1)
-            loss_mask = no_model_batch["loss_mask"].view(-1)
-            distil_loss = (distil_losses * loss_mask).sum(-1) / loss_mask.sum(-1)
-        else:
-            teacher_probs = F.softmax(teacher_logits, dim=-1, dtype=torch.float32) #[B, 512, 50257]
-            inf_mask = torch.isinf(logits)
-            logprobs = F.log_softmax(logits, dim=-1, dtype=torch.float32)
-            prod_probs = torch.masked_fill(teacher_probs * logprobs, inf_mask, 0) #[B, 512, 50257]
-            x = torch.sum(prod_probs, dim=-1).view(-1) #[B * 512]
-            mask = (no_model_batch["label"] != -100).int() # [B, 512]
-            distil_loss = -torch.sum(x * mask.view(-1), dim=0) / torch.sum(mask.view(-1), dim=0)
+    if args.model_parallel:
+        distil_losses = mpu.parallel_soft_cross_entropy_loss(teacher_logits.float(), logits.float()) \
+                        - mpu.parallel_soft_cross_entropy_loss(logits.float(), logits.float())
+        distil_losses = distil_losses.view(-1)
+        loss_mask = no_model_batch["loss_mask"].view(-1)
+        distil_loss = (distil_losses * loss_mask).sum(-1) / loss_mask.sum(-1)
     else:
-        if args.model_parallel:
-            distil_losses = mpu.parallel_soft_cross_entropy_loss(teacher_logits.float(), logits.float()) \
-                            - mpu.parallel_soft_cross_entropy_loss(logits.float(), logits.float())
-            distil_losses = distil_losses.view(-1)
-            loss_mask = no_model_batch["loss_mask"].view(-1)
-            distil_loss = (distil_losses * loss_mask).sum(-1) / loss_mask.sum(-1)
-        else:
-            probs = F.softmax(logits, dim=-1, dtype=torch.float32) #[B, 512, 50257]
-            teacher_inf_mask = torch.isinf(teacher_logits)
-            teacher_logprobs = F.log_softmax(teacher_logits, dim=-1, dtype=torch.float32) #[B, 512, 50257]
-            teacher_prod_probs = torch.masked_fill(probs * teacher_logprobs, teacher_inf_mask, 0) #[B, 512, 50257]
+        probs = F.softmax(logits, dim=-1, dtype=torch.float32) #[B, 512, 50257]
+        teacher_inf_mask = torch.isinf(teacher_logits)
+        teacher_logprobs = F.log_softmax(teacher_logits, dim=-1, dtype=torch.float32) #[B, 512, 50257]
+        teacher_prod_probs = torch.masked_fill(probs * teacher_logprobs, teacher_inf_mask, 0) #[B, 512, 50257]
 
-            inf_mask = torch.isinf(logits)
-            logprobs = F.log_softmax(logits, dim=-1, dtype=torch.float32)
-            prod_probs = torch.masked_fill(probs * logprobs, inf_mask, 0) #[B, 512, 50257]
+        inf_mask = torch.isinf(logits)
+        logprobs = F.log_softmax(logits, dim=-1, dtype=torch.float32)
+        prod_probs = torch.masked_fill(probs * logprobs, inf_mask, 0) #[B, 512, 50257]
 
-            x = torch.sum(prod_probs - teacher_prod_probs, dim=-1).view(-1) #[B * 512]
-            mask = (no_model_batch["label"] != -100).int() # [B, 512]
-            distil_loss = torch.sum(x * mask.view(-1), dim=0) / torch.sum(mask.view(-1), dim=0)
+        x = torch.sum(prod_probs - teacher_prod_probs, dim=-1).view(-1) #[B * 512]
+        mask = (no_model_batch["label"] != -100).int() # [B, 512]
+        distil_loss = torch.sum(x * mask.view(-1), dim=0) / torch.sum(mask.view(-1), dim=0)
         
     return distil_loss
 
@@ -425,26 +365,6 @@ def finetune(args, tokenizer: AutoTokenizer, model: deepspeed.DeepSpeedEngine, o
                     s_no_model_batch["loss_mask"][i][:source_len-1] = 0
             dataset["train"].move_to_device(s_model_batch, s_no_model_batch, gen_data, device)
 
-            ### Training Teacher ###
-            teacher_model.train()
-            outputs = teacher_model(**s_model_batch, use_cache=False)
-            logits = outputs.logits
-
-            teacher_distil_loss = get_distil_loss(args, tokenizer, teacher_model, model, s_model_batch, s_no_model_batch, logits, is_teacher=True)
-            teacher_loss = teacher_distil_loss
-                
-            teacher_model.backward(teacher_loss)
-            teacher_model.step()
-            
-            dist.all_reduce(teacher_loss, dist.ReduceOp.SUM, group=dp_group)
-            global_loss = teacher_loss.item() / dp_world_size
-
-            teacher_global_distil_loss = 0
-            if teacher_model is not None:
-                dist.all_reduce(teacher_distil_loss, dist.ReduceOp.SUM, group=dp_group)
-                teacher_global_distil_loss = teacher_distil_loss.item() / dp_world_size
-                total_distil_loss += teacher_global_distil_loss
-
             ### Training Student ###
             model.train()
             teacher_model.eval()
@@ -484,13 +404,13 @@ def finetune(args, tokenizer: AutoTokenizer, model: deepspeed.DeepSpeedEngine, o
             model.step()
             
             dist.all_reduce(loss, dist.ReduceOp.SUM, group=dp_group)
-            global_loss += loss.item() / dp_world_size
+            global_loss = loss.item() / dp_world_size
 
             global_distil_loss = 0
             if teacher_model is not None:
                 dist.all_reduce(distil_loss, dist.ReduceOp.SUM, group=dp_group)
                 global_distil_loss = distil_loss.item() / dp_world_size
-                #total_distil_loss += global_distil_loss
+                total_distil_loss += global_distil_loss
     
             torch.cuda.synchronize()
             elapsed_time = time.time() - st_time
@@ -538,27 +458,21 @@ def finetune(args, tokenizer: AutoTokenizer, model: deepspeed.DeepSpeedEngine, o
                 if args.model_parallel:
                     if dist.get_rank() == 0:
                         os.makedirs(save_dir_path, exist_ok=True)
-                        os.makedirs(os.path.join(save_dir_path, "teacher"), exist_ok=True)
                         model.module.config.to_json_file(os.path.join(save_dir_path, "config.json"))
-                        teacher_model.module.config.to_json_file(os.path.join(save_dir_path, "teacher", "config.json"))
                         tokenizer.save_pretrained(save_dir_path)
                     if mpu.get_data_parallel_rank() == 0:
                         save_parallel(model.module, save_dir_path)
-                        save_parallel(teacher_model.module, os.path.join(save_dir_path, "teacher"))
                 else:
                     if dist.get_rank() == 0:
                         os.makedirs(save_dir_path, exist_ok=True)
-                        os.makedirs(os.path.join(save_dir_path, "teacher"), exist_ok=True)
-                        teacher_model.module.config.to_json_file(os.path.join(save_dir_path, "teacher", "config.json"))
                         print_rank(f"Model save to {save_dir_path}")
                         tokenizer.save_pretrained(save_dir_path)
                         model.module.save_pretrained(save_dir_path, safe_serialization=False)
-                        teacher_model.module.save_pretrained(os.path.join(save_dir_path, "teacher"), safe_serialization=False)
                 dist.barrier()
         
             # Evaluation
             if args.eval_interval and global_step % args.eval_interval == 0 and step % args.gradient_accumulation_steps == 0:
-                best_eval = evaluate(args, tokenizer, model, dataset["dev"], "dev", epoch, device, best_eval, teacher_model)
+                best_eval = evaluate(args, tokenizer, model, dataset["dev"], "dev", epoch, device, best_eval)
                     
                 model.train()
                 
@@ -572,7 +486,7 @@ def finetune(args, tokenizer: AutoTokenizer, model: deepspeed.DeepSpeedEngine, o
     return model
 
 
-def evaluate(args, tokenizer, model, dataset: LMTrainDataset, split, epoch, device, best_eval=None, teacher_model=None):
+def evaluate(args, tokenizer, model, dataset: LMTrainDataset, split, epoch, device, best_eval=None):
     
     collate_fn = dataset.collate
 
@@ -699,10 +613,8 @@ def evaluate(args, tokenizer, model, dataset: LMTrainDataset, split, epoch, devi
 
             if get_rank() == 0:
                 model.module.config.to_json_file(os.path.join(save_dir, "config.json"))
-                teacher_model.module.config.to_json_file(os.path.join(save_dir, "teacher", "config.json"))
                 tokenizer.save_pretrained(save_dir)
             save_parallel(model.module, save_dir)
-            save_parallel(teacher_model.module, os.path.join(save_dir, "teacher"))
     
     elif get_rank() == 0:
         if args.eval_gen:
@@ -730,7 +642,6 @@ def evaluate(args, tokenizer, model, dataset: LMTrainDataset, split, epoch, devi
             save_dir = os.path.join(args.save, "best_rougeL")
             print_rank(save_dir)
             os.makedirs(save_dir, exist_ok=True)
-            os.makedirs(os.path.join(save_dir, "teacher"), exist_ok=True)
             with open(os.path.join(save_dir, "log.txt"), "w") as f:
                 f.write("epoch: %s, rougeL: %f\n" % (str(epoch), res['rougeL']))
 
@@ -739,7 +650,6 @@ def evaluate(args, tokenizer, model, dataset: LMTrainDataset, split, epoch, devi
             print_rank(f"Model save to {save_dir}")
             tokenizer.save_pretrained(save_dir)
             model.module.save_pretrained(save_dir, safe_serialization=False)
-            teacher_model.module.save_pretrained(os.path.join(save_dir, "teacher"), safe_serialization=False)
 
     return best_eval
 
@@ -810,8 +720,8 @@ def main():
         args.teacher_model_type = args.model_type
     
     if args.teacher_model_path is not None:
-        teacher_model, teacher_optimizer, teacher_lr_scheduler = setup_teacher_model_and_optimizer(args, ds_config, device, set_optim=args.do_train)
-        #teacher_model = get_teacher_model(args, ds_config, device)
+        #teacher_model, teacher_optimizer, teacher_lr_scheduler = setup_teacher_model_and_optimizer(args, ds_config, device, set_optim=args.do_train)
+        teacher_model = get_teacher_model(args, ds_config, device)
     else:
         teacher_model = None
     
