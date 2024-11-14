@@ -30,7 +30,7 @@ EVAL_BATCH_SIZE=32
 # length
 MAX_LENGTH=512
 # runtime
-SAVE_PATH="${BASE_PATH}/results/moe/train/moekd_sfr/moekd_1_3B"
+SAVE_PATH="${BASE_PATH}/results/moe/train/sfrmoekd/moekd_1_3B"
 # seed
 SEED=10
 
