@@ -17,6 +17,7 @@ import random
 import json
 from tqdm import tqdm
 import math
+import numpy as np
 
 from transformers import (
     AutoModelForCausalLM,
@@ -191,18 +192,16 @@ def setup_teacher_model_and_optimizer(args, ds_config, device, set_optim=True):
     if set_optim:
         while isinstance(model, DDP):
             model = model.module
-
-        import pdb
-        pdb.set_trace()
+        
         for params in model.parameters():
             params.requires_grad = False
-            model.encoder.block.freeze_pretrained()
-            model.decoder.block.freeze_pretrained()
 
-        if args.teacher_peft is not None:
-            param_groups = get_optimizer_params_peft(args, model)
-        else:
-            param_groups = get_optimizer_params(args, model)
+        num_layer = len(model.model.layers)
+        for i in range(num_layer):
+            for params in model.model.layers[i].mlp.gate.gate_network.parameters():
+                params.requires_grad = True
+
+        param_groups = get_optimizer_params_peft(args, model)
 
         # Use AdamW.
         optimizer = AdamW(param_groups, lr=args.teacher_lr, weight_decay=args.weight_decay)
@@ -243,56 +242,47 @@ def prepare_dataset(args, tokenizer):
     return data
 
 
-def get_distil_loss(args, tokenizer, model, teacher_model, model_batch, no_model_batch, logits):
-    if args.num_repeats is not None:
-        distil_loss = 0
-        if args.model_parallel:
-            loss_mask = no_model_batch["loss_mask"].view(-1)
-        else:
-            inf_mask = torch.isinf(logits)
-            logprobs = F.log_softmax(logits, dim=-1, dtype=torch.float32)
-            mask = (no_model_batch["label"] != -100).int()
-        for _ in range(args.num_repeats):
-            with torch.no_grad():
-                teacher_model.eval()
-                # if args.type == "moekd":
-                #     teacher_outputs = teacher_model(**model_batch, use_cache=False, gate_logit_output=True)
-                #     gate_logits = teacher_outputs.gate_logits #len: 32(layers), each shape [2048 * 16]
-                teacher_outputs = teacher_model(**model_batch, use_cache=False)
-                teacher_logits = teacher_outputs.logits
-            if args.model_parallel:
-                distil_losses = mpu.parallel_soft_cross_entropy_loss(logits.float(), teacher_logits.float())
-                distil_losses = distil_losses.view(-1)
-                distil_loss += (distil_losses * loss_mask).sum(-1) / loss_mask.sum(-1)
-            else:
-                teacher_probs = F.softmax(teacher_logits, dim=-1, dtype=torch.float32)  # [B, L, V]
-                prod_probs = torch.masked_fill(teacher_probs * logprobs, inf_mask, 0)
-                x = torch.sum(prod_probs, dim=-1).view(-1)
-                distil_loss += -torch.sum(x * mask.view(-1), dim=0) / torch.sum(mask.view(-1), dim=0)
-        distil_loss /= args.num_repeats
-    else:
-        with torch.no_grad():
-            teacher_model.eval()
-            # if args.type == "moekd":
-            #     teacher_outputs = teacher_model(**model_batch, use_cache=False, gate_logit_output=True)
-            #     gate_logits = teacher_outputs.gate_logits #len: 32(layers), each shape [2048 * 16]
-            teacher_outputs = teacher_model(**model_batch, use_cache=False)
-            teacher_logits = teacher_outputs.logits
+def get_distil_loss(args, tokenizer, model, teacher_model, model_batch, no_model_batch, logits, is_teacher=False):
+    with torch.no_grad():
+        teacher_model.eval()
+        teacher_outputs = teacher_model(**model_batch, use_cache=False)
+        teacher_logits = teacher_outputs.logits
+
+    if (is_teacher and args.teacher_kld_type == "forward"):
         if args.model_parallel:
             distil_losses = mpu.parallel_soft_cross_entropy_loss(logits.float(), teacher_logits.float())
             distil_losses = distil_losses.view(-1)
             loss_mask = no_model_batch["loss_mask"].view(-1)
             distil_loss = (distil_losses * loss_mask).sum(-1) / loss_mask.sum(-1)
         else:
-            teacher_probs = F.softmax(teacher_logits, dim=-1, dtype=torch.float32)  # [B, L, V]
+            teacher_probs = F.softmax(teacher_logits, dim=-1, dtype=torch.float32) #[B, 512, 50257]
             inf_mask = torch.isinf(logits)
             logprobs = F.log_softmax(logits, dim=-1, dtype=torch.float32)
-            prod_probs = torch.masked_fill(teacher_probs * logprobs, inf_mask, 0)
-            x = torch.sum(prod_probs, dim=-1).view(-1)
-            mask = (no_model_batch["label"] != -100).int()
+            prod_probs = torch.masked_fill(teacher_probs * logprobs, inf_mask, 0) #[B, 512, 50257]
+            x = torch.sum(prod_probs, dim=-1).view(-1) #[B * 512]
+            mask = (no_model_batch["label"] != -100).int() # [B, 512]
             distil_loss = -torch.sum(x * mask.view(-1), dim=0) / torch.sum(mask.view(-1), dim=0)
-    # if args.type == "moekd":
-    #     return distil_loss, gate_logits
+    else:
+        if args.model_parallel:
+            distil_losses = mpu.parallel_soft_cross_entropy_loss(teacher_logits.float(), logits.float()) \
+                            - mpu.parallel_soft_cross_entropy_loss(logits.float(), logits.float())
+            distil_losses = distil_losses.view(-1)
+            loss_mask = no_model_batch["loss_mask"].view(-1)
+            distil_loss = (distil_losses * loss_mask).sum(-1) / loss_mask.sum(-1)
+        else:
+            probs = F.softmax(logits, dim=-1, dtype=torch.float32) #[B, 512, 50257]
+            teacher_inf_mask = torch.isinf(teacher_logits)
+            teacher_logprobs = F.log_softmax(teacher_logits, dim=-1, dtype=torch.float32) #[B, 512, 50257]
+            teacher_prod_probs = torch.masked_fill(probs * teacher_logprobs, teacher_inf_mask, 0) #[B, 512, 50257]
+
+            inf_mask = torch.isinf(logits)
+            logprobs = F.log_softmax(logits, dim=-1, dtype=torch.float32)
+            prod_probs = torch.masked_fill(probs * logprobs, inf_mask, 0) #[B, 512, 50257]
+
+            x = torch.sum(prod_probs - teacher_prod_probs, dim=-1).view(-1) #[B * 512]
+            mask = (no_model_batch["label"] != -100).int() # [B, 512]
+            distil_loss = torch.sum(x * mask.view(-1), dim=0) / torch.sum(mask.view(-1), dim=0)
+        
     return distil_loss
 
 
@@ -391,42 +381,115 @@ def finetune(args, tokenizer: AutoTokenizer, model: deepspeed.DeepSpeedEngine, o
             # if it == 0 and dist.get_rank() == 0:
             #     torch.save((model_batch, no_model_batch), os.path.join(args.save, "examples.pt"))
 
-            outputs = model(**model_batch, use_cache=False)
-            
+            ### Sampling from Student ###
+            model.eval()
+            with torch.no_grad():
+                max_new_tokens = args.max_length - gen_data["input_ids"].size(1)
+                gen_out = model.generate(
+                    **gen_data,
+                    generation_config=generation_config,
+                    max_new_tokens=max_new_tokens)
+                full_ids = gen_out.sequences            
+                full_ids = F.pad(
+                    full_ids,
+                    (0, args.max_length - full_ids.shape[1]),
+                    value=tokenizer.pad_token_id,
+                )
+                response_ids = full_ids[:, gen_data["input_ids"].size(1):]
+                response_ids[:, -1] = tokenizer.pad_token_id
+                
+                s_model_batch = {
+                    "input_ids": torch.ones(args.batch_size, args.max_length, dtype=torch.long) * tokenizer.eos_token_id,
+                    "attention_mask": torch.zeros(args.batch_size, args.max_length),
+                }
+                if args.model_type in ["gpt2"]:
+                    s_model_batch["position_ids"] = torch.zeros(args.batch_size, args.max_length, dtype=torch.long)    
+                s_no_model_batch = {
+                    "label": torch.ones(args.batch_size, args.max_length, dtype=torch.long) * -100,
+                    "loss_mask": torch.zeros(args.batch_size, args.max_length)
+                }
+                
+                for i, input_ids_ in enumerate(model_batch['input_ids']):
+                    source_len = int(model_batch['attention_mask'][i].sum() - no_model_batch['loss_mask'][i].sum()) + 1
+                    input_ids = np.concatenate([np.array(input_ids_[:source_len].cpu()), np.array(response_ids[i][:response_ids[i].tolist().index(tokenizer.pad_token_id) + 1].cpu())], axis=0)
+                    input_ids = input_ids[:args.max_length]
+                    input_len = len(input_ids)
+                    s_model_batch["input_ids"][i][:input_len-1] = torch.tensor(input_ids[:-1], dtype=torch.long)
+                    s_model_batch["attention_mask"][i][:input_len-1] = 1.0
+                    if args.model_type in ["gpt2"]:
+                        s_model_batch["position_ids"][i][:input_len-1] = torch.arange(0, input_len-1, dtype=torch.long)
+                    s_no_model_batch["label"][i][:input_len-1] = torch.tensor(input_ids[1:], dtype=torch.long)
+                    s_no_model_batch["label"][i][:source_len-1] = -100
+                    s_no_model_batch["loss_mask"][i][:input_len-1] = 1.0
+                    s_no_model_batch["loss_mask"][i][:source_len-1] = 0
+            dataset["train"].move_to_device(s_model_batch, s_no_model_batch, gen_data, device)
+
+            ### Training Teacher ###
+            teacher_model.train()
+            outputs = teacher_model(**s_model_batch, use_cache=False)
             logits = outputs.logits
-            if args.model_parallel:
-                lm_losses = loss_func(logits.contiguous().float(), no_model_batch["label"]).view(-1)
-                loss_mask = no_model_batch["loss_mask"].view(-1)
-                lm_loss = (lm_losses * loss_mask).sum(-1) / loss_mask.sum(-1)
-            else:
-                lm_loss = loss_func(logits.float().view(-1, logits.shape[-1]), no_model_batch["label"].view(-1))
+
+            teacher_distil_loss = get_distil_loss(args, tokenizer, teacher_model, model, s_model_batch, s_no_model_batch, logits, is_teacher=True)
+            teacher_loss = teacher_distil_loss
+                
+            teacher_model.backward(teacher_loss)
+            teacher_model.step()
             
+            dist.all_reduce(teacher_loss, dist.ReduceOp.SUM, group=dp_group)
+            global_loss = teacher_loss.item() / dp_world_size
+
+            teacher_global_distil_loss = 0
             if teacher_model is not None:
-                # if args.type == "moekd":
-                #     distil_loss, gate_logits = get_distil_loss(args, tokenizer, model, teacher_model, model_batch, no_model_batch, logits)
-                #     loss = (1 - args.kd_ratio) * lm_loss + args.kd_ratio * distil_loss
-                #     # (no_model_batch["label"] != -100).int()
+                dist.all_reduce(teacher_distil_loss, dist.ReduceOp.SUM, group=dp_group)
+                teacher_global_distil_loss = teacher_distil_loss.item() / dp_world_size
+                total_distil_loss += teacher_global_distil_loss
+
+            ### Training Student ###
+            model.train()
+            teacher_model.eval()
+
+            outputs = model(**s_model_batch, use_cache=False)
+            logits = outputs.logits
+            
+            distil_loss = get_distil_loss(args, tokenizer, model, teacher_model, s_model_batch, s_no_model_batch, logits)
+            loss = distil_loss
+
+            # outputs = model(**model_batch, use_cache=False)
+            
+            # logits = outputs.logits
+            # if args.model_parallel:
+            #     lm_losses = loss_func(logits.contiguous().float(), no_model_batch["label"]).view(-1)
+            #     loss_mask = no_model_batch["loss_mask"].view(-1)
+            #     lm_loss = (lm_losses * loss_mask).sum(-1) / loss_mask.sum(-1)
+            # else:
+            #     lm_loss = loss_func(logits.float().view(-1, logits.shape[-1]), no_model_batch["label"].view(-1))
+            
+            # if teacher_model is not None:
+            #     # if args.type == "moekd":
+            #     #     distil_loss, gate_logits = get_distil_loss(args, tokenizer, model, teacher_model, model_batch, no_model_batch, logits)
+            #     #     loss = (1 - args.kd_ratio) * lm_loss + args.kd_ratio * distil_loss
+            #     #     # (no_model_batch["label"] != -100).int()
                      
-                #     os.makedirs(os.path.join(args.save, "gate_logits"), exist_ok=True)
-                #     os.makedirs(os.path.join(args.save, "no_model_batch"), exist_ok=True)
-                #     torch.save(gate_logits, os.path.join(args.save, "gate_logits", f"{step}.pt"))
-                #     torch.save(no_model_batch["label"], os.path.join(args.save, "no_model_batch", f"{step}.pt"))
-                distil_loss = get_distil_loss(args, tokenizer, model, teacher_model, model_batch, no_model_batch, logits)
-                loss = (1 - args.kd_ratio) * lm_loss + args.kd_ratio * distil_loss
-            else:
-                loss = lm_loss
+            #     #     os.makedirs(os.path.join(args.save, "gate_logits"), exist_ok=True)
+            #     #     os.makedirs(os.path.join(args.save, "no_model_batch"), exist_ok=True)
+            #     #     torch.save(gate_logits, os.path.join(args.save, "gate_logits", f"{step}.pt"))
+            #     #     torch.save(no_model_batch["label"], os.path.join(args.save, "no_model_batch", f"{step}.pt"))
+            #     distil_loss = get_distil_loss(args, tokenizer, model, teacher_model, model_batch, no_model_batch, logits)
+            #     loss = (1 - args.kd_ratio) * lm_loss + args.kd_ratio * distil_loss
+            # else:
+            #     loss = lm_loss
                 
             model.backward(loss)
             model.step()
             
             dist.all_reduce(loss, dist.ReduceOp.SUM, group=dp_group)
-            global_loss = loss.item() / dp_world_size
+            global_loss += loss.item() / dp_world_size
 
             global_distil_loss = 0
             if teacher_model is not None:
                 dist.all_reduce(distil_loss, dist.ReduceOp.SUM, group=dp_group)
                 global_distil_loss = distil_loss.item() / dp_world_size
-                total_distil_loss += global_distil_loss
+                #total_distil_loss += global_distil_loss
     
             torch.cuda.synchronize()
             elapsed_time = time.time() - st_time
@@ -436,7 +499,7 @@ def finetune(args, tokenizer: AutoTokenizer, model: deepspeed.DeepSpeedEngine, o
 
             # Logging
             def get_log(log_loss, log_distil_loss, log_time):
-                return "train | epoch {:3d} | Iter: {:6d}/{:6d} | global iter: {:6d}/{:6d} | loss: {:.4f} | ds_loss: {:.4f} | lr: {:.4e} | scale: {:10.4f} | micro time: {:.3f} | step time: {:.3f}".format(
+                return "train | epoch {:3d} | Iter: {:6d}/{:6d} | global iter: {:6d}/{:6d} | loss: {:.4f} | t_loss: {:.4f} | lr: {:.4e} | scale: {:10.4f} | micro time: {:.3f} | step time: {:.3f}".format(
                     epoch,
                     step,
                     args.total_iters * args.gradient_accumulation_steps,
@@ -474,21 +537,27 @@ def finetune(args, tokenizer: AutoTokenizer, model: deepspeed.DeepSpeedEngine, o
                 if args.model_parallel:
                     if dist.get_rank() == 0:
                         os.makedirs(save_dir_path, exist_ok=True)
+                        os.makedirs(os.path.join(save_dir_path, "teacher"), exist_ok=True)
                         model.module.config.to_json_file(os.path.join(save_dir_path, "config.json"))
+                        teacher_model.module.config.to_json_file(os.path.join(save_dir_path, "teacher", "config.json"))
                         tokenizer.save_pretrained(save_dir_path)
                     if mpu.get_data_parallel_rank() == 0:
                         save_parallel(model.module, save_dir_path)
+                        save_parallel(teacher_model.module, os.path.join(save_dir_path, "teacher"))
                 else:
                     if dist.get_rank() == 0:
                         os.makedirs(save_dir_path, exist_ok=True)
+                        os.makedirs(os.path.join(save_dir_path, "teacher"), exist_ok=True)
+                        teacher_model.module.config.to_json_file(os.path.join(save_dir_path, "teacher", "config.json"))
                         print_rank(f"Model save to {save_dir_path}")
                         tokenizer.save_pretrained(save_dir_path)
                         model.module.save_pretrained(save_dir_path, safe_serialization=False)
+                        teacher_model.module.save_pretrained(os.path.join(save_dir_path, "teacher"), safe_serialization=False)
                 dist.barrier()
         
             # Evaluation
             if args.eval_interval and global_step % args.eval_interval == 0 and step % args.gradient_accumulation_steps == 0:
-                best_eval = evaluate(args, tokenizer, model, dataset["dev"], "dev", epoch, device, best_eval)
+                best_eval = evaluate(args, tokenizer, model, dataset["dev"], "dev", epoch, device, best_eval, teacher_model)
                     
                 model.train()
                 
@@ -590,8 +659,51 @@ def evaluate(args, tokenizer, model, dataset: LMTrainDataset, split, epoch, devi
         all_response_ids = all_response_ids.view(-1, all_response_ids.size(-1))
         
         responses = tokenizer.batch_decode(all_response_ids, skip_special_tokens=True)
+
+    if args.model_parallel and mpu.get_data_parallel_rank() == 0:
+        if args.eval_gen:
+            references = dataset.answers
+            responses = responses[:len(references)]
+            
+            res = compute_metrics(responses, references)
+        
+            if get_rank() == 0:
+                eval_dir = os.path.join(args.save, "eval", str(epoch))
+                print_rank(eval_dir)
+                os.makedirs(eval_dir, exist_ok=True)
+                with open(os.path.join(eval_dir, "answers.jsonl"), "w") as f:
+                    for resp in responses:
+                        f.write(json.dumps({"text": resp}) + "\n")
+        else:
+            res = {}
+        
+        if get_rank() == 0:
+            avg_loss = all_loss / step
+        
+            log_str = f"{split} | avg_loss: {avg_loss} | {res}"
+            print_rank(log_str)
+            save_rank(log_str, os.path.join(args.save, "log.txt"))
+
+        if best_eval is not None and res['rougeL'] > best_eval:
+            save_dir = os.path.join(args.save, "best_rougeL")
+            if get_rank() == 0:
+                print_rank(save_dir)
+                os.makedirs(save_dir, exist_ok=True)
+                os.makedirs(os.path.join(save_dir, "teacher"), exist_ok=True)
+
+                with open(os.path.join(save_dir, "log.txt"), "w") as f:
+                    f.write("epoch: %s, rougeL: %f\n" % (str(epoch), res['rougeL']))
+
+            best_eval = res['rougeL']
+
+            if get_rank() == 0:
+                model.module.config.to_json_file(os.path.join(save_dir, "config.json"))
+                teacher_model.module.config.to_json_file(os.path.join(save_dir, "teacher", "config.json"))
+                tokenizer.save_pretrained(save_dir)
+            save_parallel(model.module, save_dir)
+            save_parallel(teacher_model.module, os.path.join(save_dir, "teacher"))
     
-    if get_rank() == 0:
+    elif get_rank() == 0:
         if args.eval_gen:
             references = dataset.answers
             responses = responses[:len(references)]
@@ -617,6 +729,7 @@ def evaluate(args, tokenizer, model, dataset: LMTrainDataset, split, epoch, devi
             save_dir = os.path.join(args.save, "best_rougeL")
             print_rank(save_dir)
             os.makedirs(save_dir, exist_ok=True)
+            os.makedirs(os.path.join(save_dir, "teacher"), exist_ok=True)
             with open(os.path.join(save_dir, "log.txt"), "w") as f:
                 f.write("epoch: %s, rougeL: %f\n" % (str(epoch), res['rougeL']))
 
@@ -625,6 +738,7 @@ def evaluate(args, tokenizer, model, dataset: LMTrainDataset, split, epoch, devi
             print_rank(f"Model save to {save_dir}")
             tokenizer.save_pretrained(save_dir)
             model.module.save_pretrained(save_dir, safe_serialization=False)
+            teacher_model.module.save_pretrained(os.path.join(save_dir, "teacher"), safe_serialization=False)
 
     return best_eval
 

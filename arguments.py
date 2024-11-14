@@ -304,6 +304,7 @@ def get_args():
             (f"-nns{args.new_num_selects}" if args.new_num_selects is not None else "") + \
             (f"-mp{args.model_parallel_size}" if args.model_parallel > 0 else "") + \
             (f"-lora-{args.peft_lora_r}-{args.peft_lora_alpha}-{args.peft_lora_dropout}" if args.peft == "lora" else "") + \
+            (f"-tlr{args.teacher_lr}" if args.teacher_lr is not None else "") + \
             args.save_additional_suffix
         )
         args.save = save_path
