@@ -499,9 +499,6 @@ class TopKBalancedNoisyGate(nn.Module):
         #     x = torch.nan_to_num(x, nan=0.0, posinf=0.0, neginf=0.0)
         
         logits_gate = self.gate_network(x)
-
-        import pdb
-        pdb.set_trace()
         
         if self.training and self.add_noise:
             print("Traning mode, add noise")

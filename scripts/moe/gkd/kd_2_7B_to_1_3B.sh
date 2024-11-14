@@ -4,7 +4,7 @@ MASTER_ADDR=localhost
 MASTER_PORT=${2-2012}
 NNODES=1
 NODE_RANK=0
-GPUS_PER_NODE=${3-4}
+GPUS_PER_NODE=${3-1}
 
 DISTRIBUTED_ARGS="--nproc_per_node $GPUS_PER_NODE \
                   --nnodes $NNODES \
@@ -17,38 +17,32 @@ BASE_PATH=${1-"."}
 CKPT_NAME="sft_init_1_3B"
 CKPT="${BASE_PATH}/results/moe/train/sft/sft_1_3B/e10-bs8-lr1e-05-G1-N2-NN1/sft_init"
 # CKPT="huggyllama/llama-7b"
-TEACHER_CKPT_NAME="3_5B-4_16"
-TEACHER_CKPT="${BASE_PATH}/results/moe/train/sft/sft_3_5B-4_16/e10-bs4-lr1e-05-G1-N4-NN1/best_rougeL"
+TEACHER_CKPT_NAME="2_7B"
+TEACHER_CKPT="${BASE_PATH}/results/moe/train/sft/sft_2_7B/e10-bs8-lr1e-05-G1-N2-NN1/best_rougeL"
 # MP_SIZE=4
 # data
 DATA_DIR="${BASE_PATH}/processed_data/dolly/full/moe/"
 # hp
 BATCH_SIZE=4
-LR=1e-05
+LR=0.00001
 GRAD_ACC=1
 EVAL_BATCH_SIZE=32
 # length
 MAX_LENGTH=512
 # runtime
-SAVE_PATH="${BASE_PATH}/results/moe/train/sfrmoekd/moekd_1_3B"
+SAVE_PATH="${BASE_PATH}/results/moe/train/gkd/kd_2_7B_to_1_3B"
 # seed
 SEED=10
 
-# MoE KD
-NUM_SELECTS=16
-TEACHER_LR=5e-05
 
 OPTS=""
-# moekd
-OPTS+=" --num-selects ${NUM_SELECTS}"
-OPTS+=" --teacher-lr ${TEACHER_LR}"
 # model
 OPTS+=" --base-path ${BASE_PATH}"
 OPTS+=" --model-path ${CKPT}"
 OPTS+=" --teacher-model-path ${TEACHER_CKPT}"
 OPTS+=" --ckpt-name ${CKPT_NAME}"
 OPTS+=" --teacher-ckpt-name ${TEACHER_CKPT_NAME}"
-OPTS+=" --teacher-model-type moe"
+OPTS+=" --teacher-model-type llama"
 OPTS+=" --teacher-model-fp16"
 OPTS+=" --n-gpu ${GPUS_PER_NODE}"
 OPTS+=" --model-type llama"
@@ -68,7 +62,7 @@ OPTS+=" --warmup-iters 0"
 OPTS+=" --lr-decay-style cosine"
 OPTS+=" --weight-decay 1e-2"
 OPTS+=" --clip-grad 1.0"
-OPTS+=" --epochs 10" #10
+OPTS+=" --epochs 10"
 OPTS+=" --kd-ratio 0.5"
 # length
 OPTS+=" --max-length ${MAX_LENGTH}"
@@ -79,7 +73,7 @@ OPTS+=" --do-valid"
 OPTS+=" --eval-gen"
 OPTS+=" --save-interval -1"
 OPTS+=" --eval-interval -1"
-OPTS+=" --log-interval 4"
+OPTS+=" --log-interval 10"
 OPTS+=" --mid-log-num -1"
 OPTS+=" --save ${SAVE_PATH}"
 # seed
@@ -88,7 +82,7 @@ OPTS+=" --seed ${SEED}"
 OPTS+=" --deepspeed"
 OPTS+=" --deepspeed_config ${BASE_PATH}/configs/deepspeed/ds_config.json"
 # type
-OPTS+=" --type moekd"
+OPTS+=" --type kd"
 # gen
 OPTS+=" --do-sample"
 OPTS+=" --top-k 0"
@@ -102,15 +96,15 @@ export TF_CPP_MIN_LOG_LEVEL=3
 export PYTHONPATH=${BASE_PATH}
 export PT_HPU_LAZY_MODE=0
 export OMP_NUM_THREADS=8
-CMD="torchrun ${DISTRIBUTED_ARGS} ${BASE_PATH}/finetune_sfr.py ${OPTS} $@"
+CMD="torchrun ${DISTRIBUTED_ARGS} ${BASE_PATH}/finetune_gkd.py ${OPTS} $@"
 
 echo ${CMD}
 echo "PYTHONPATH=${PYTHONPATH}"
 mkdir -p ${SAVE_PATH}
-while ! test -f ./results/moe/train/sfrmoekd/moekd_1_3B/e10-bs4-lr1e-05-G1-N4-NN1-kd0.5-topk${NUM_SELECTS}-tlr${TEACHER_LR}/best_rougeL/log.txt
+while ! test -f ./results/moe/train/gkd/kd_2_7B_to_1_3B/e10-bs4-lr1e-05-G1-N4-NN1-kd0.5/best_rougeL/log.txt
 do
     ${CMD}
     sleep 20
 done
 
-bash scripts/moe/eval/run_eval.sh . results/moe/train/sfrmoekd/moekd_1_3B/e10-bs4-lr1e-05-G1-N4-NN1-kd0.5-topk${NUM_SELECTS}-tlr${TEACHER_LR}/best_rougeL 15035 llama ${GPUS_PER_NODE}
+bash scripts/moe/eval/run_eval.sh . results/moe/train/gkd/kd_2_7B_to_1_3B/e10-bs4-lr1e-05-G1-N4-NN1-kd0.5/best_rougeL 15035 llama ${GPUS_PER_NODE}
