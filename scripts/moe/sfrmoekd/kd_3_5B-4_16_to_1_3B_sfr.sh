@@ -105,10 +105,10 @@ CMD="torchrun ${DISTRIBUTED_ARGS} ${BASE_PATH}/finetune_sfr.py ${OPTS} $@"
 echo ${CMD}
 echo "PYTHONPATH=${PYTHONPATH}"
 mkdir -p ${SAVE_PATH}
-while ! test -f ./results/moe/train/moekd/moekd_1_3B/e10-bs4-lr1e-05-G1-N4-NN1-kd0.5-topk${NUM_SELECTS}/best_rougeL/log.txt
+while ! test -f ./results/moe/train/sfrmoekd/moekd_1_3B/e10-bs4-lr1e-05-G1-N4-NN1-kd0.5-topk${NUM_SELECTS}/best_rougeL/log.txt
 do
     ${CMD}
     sleep 20
 done
 
-bash scripts/moe/eval/run_eval.sh . results/moe/train/moekd/moekd_1_3B/e10-bs4-lr1e-05-G1-N4-NN1-kd0.5-topk${NUM_SELECTS}/best_rougeL 15035 llama ${GPUS_PER_NODE}
+bash scripts/moe/eval/run_eval.sh . results/moe/train/sfrmoekd/moekd_1_3B/e10-bs4-lr1e-05-G1-N4-NN1-kd0.5-topk${NUM_SELECTS}/best_rougeL 15035 llama ${GPUS_PER_NODE}
