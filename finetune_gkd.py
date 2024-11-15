@@ -46,7 +46,7 @@ from rouge_metric import compute_metrics
 from peft import PeftModel
 import logging
 import traceback
-
+logging.basicConfig(filename='./error.log', level=logging.ERROR)
 torch.set_num_threads(8)
 
 def get_teacher_model(args, ds_config, device):
@@ -735,4 +735,7 @@ def main():
         
     
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except:
+        logging.error(traceback.format_exc())
