@@ -44,7 +44,9 @@ from accelerate import init_empty_weights
 from rouge_metric import compute_metrics
 
 from peft import PeftModel
-
+import logging
+import traceback
+logging.basicConfig(filename='./error.log', level=logging.ERROR)
 torch.set_num_threads(8)
 
 def get_teacher_model(args, ds_config, device):
