@@ -501,7 +501,6 @@ class TopKBalancedNoisyGate(nn.Module):
         logits_gate = self.gate_network(x)
         
         if self.training and self.add_noise:
-            print("Traning mode, add noise")
             noise_mm = self.weight_noise(x)
             noise_control = self.softplus(noise_mm) + self.noise_epsilon
             logits_noise = torch.randn_like(logits_gate) * noise_control

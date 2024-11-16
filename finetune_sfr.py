@@ -71,7 +71,7 @@ def get_teacher_model(args, ds_config, device):
             model = LlamaMoEForCausalLM.from_pretrained(args.teacher_model_path, torch_dtype=torch.bfloat16)
             model.to(device)
             model.set_moe_old_num_selects(model.model.layers[0].mlp.num_selects)
-            model.set_moe_gate_add_noise(False)
+            #model.set_moe_gate_add_noise(False)
             if args.num_selects is not None:
                 model.set_moe_num_selects(args.num_selects)
             if args.moe_top_p is not None:
@@ -203,6 +203,7 @@ def setup_teacher_model_and_optimizer(args, ds_config, device, set_optim=True):
         for i in range(num_layer):
             for params in model.model.layers[i].mlp.gate.gate_network.parameters():
                 params.requires_grad = True
+            model.model.layers[i].mlp.gate.weight_noise.weight.requires_grad = True
 
         param_groups = get_optimizer_params_peft(args, model)
 
@@ -365,7 +366,7 @@ def finetune(args, tokenizer: AutoTokenizer, model: deepspeed.DeepSpeedEngine, o
     )
 
     step, global_step = 1, 1
-    total_loss, total_distil_loss, total_time = 0.0, 0.0, 0.0
+    total_loss, total_distil_loss, total_balance_loss, total_time = 0.0, 0.0, 0.0, 0.0
     best_eval = 0.0
     
     #evaluate(args, tokenizer, model, dataset["dev"], "dev", 0, device)
@@ -431,9 +432,10 @@ def finetune(args, tokenizer: AutoTokenizer, model: deepspeed.DeepSpeedEngine, o
             teacher_model.train()
             outputs = teacher_model(**s_model_batch, use_cache=False)
             logits = outputs.logits
+            balance_loss = outputs.balance_loss
 
             teacher_distil_loss = get_distil_loss(args, tokenizer, teacher_model, model, s_model_batch, s_no_model_batch, logits, is_teacher=True)
-            teacher_loss = teacher_distil_loss
+            teacher_loss = teacher_distil_loss + balance_loss
                 
             teacher_model.backward(teacher_loss)
             teacher_model.step()
@@ -446,6 +448,12 @@ def finetune(args, tokenizer: AutoTokenizer, model: deepspeed.DeepSpeedEngine, o
                 dist.all_reduce(teacher_distil_loss, dist.ReduceOp.SUM, group=dp_group)
                 teacher_global_distil_loss = teacher_distil_loss.item() / dp_world_size
                 total_distil_loss += teacher_global_distil_loss
+            
+            teacher_balance_loss = 0
+            if teacher_model is not None:
+                dist.all_reduce(balance_loss, dist.ReduceOp.SUM, group=dp_group)
+                teacher_balance_loss = balance_loss.item() / dp_world_size
+                total_balance_loss += teacher_balance_loss
 
             ### Training Student ###
             model.train()
@@ -501,8 +509,8 @@ def finetune(args, tokenizer: AutoTokenizer, model: deepspeed.DeepSpeedEngine, o
             total_time += elapsed_time
 
             # Logging
-            def get_log(log_loss, log_distil_loss, log_time):
-                return "train | epoch {:3d} | Iter: {:6d}/{:6d} | global iter: {:6d}/{:6d} | loss: {:.4f} | t_loss: {:.4f} | lr: {:.4e} | scale: {:10.4f} | micro time: {:.3f} | step time: {:.3f}".format(
+            def get_log(log_loss, log_distil_loss, log_balance_loss, log_time):
+                return "train | epoch {:3d} | Iter: {:6d}/{:6d} | global iter: {:6d}/{:6d} | loss: {:.4f} | t_loss: {:.4f} | balance_loss: {:.4f} | lr: {:.4e} | scale: {:10.4f} | micro time: {:.3f} | step time: {:.3f}".format(
                     epoch,
                     step,
                     args.total_iters * args.gradient_accumulation_steps,
@@ -510,6 +518,7 @@ def finetune(args, tokenizer: AutoTokenizer, model: deepspeed.DeepSpeedEngine, o
                     args.total_iters,
                     log_loss,
                     log_distil_loss,
+                    log_balance_loss,
                     lr_scheduler.get_last_lr()[0],
                     optimizer.cur_scale if hasattr(optimizer, "cur_scale") else 0,
                     elapsed_time,
@@ -520,19 +529,20 @@ def finetune(args, tokenizer: AutoTokenizer, model: deepspeed.DeepSpeedEngine, o
                 mid_log_step = args.gradient_accumulation_steps // args.mid_log_num
                 mid_log_step = 1 if mid_log_step == 0 else mid_log_step
                 if step % mid_log_step == 0:
-                    print_rank(get_log(global_loss, global_distil_loss, 0))
+                    print_rank(get_log(global_loss, global_distil_loss, teacher_balance_loss, 0))
 
             if global_step % args.log_interval == 0 and step % args.gradient_accumulation_steps == 0:
                 log_str = get_log(
                     total_loss / (args.log_interval * args.gradient_accumulation_steps),
                     total_distil_loss / (args.log_interval * args.gradient_accumulation_steps),
+                    total_balance_loss / (args.log_interval * args.gradient_accumulation_steps),
                     total_time / (args.log_interval))
                 print_rank("*" * 100)
                 print_rank(log_str)
                 print_rank(args.save)
                 print_rank("*" * 100)
                 save_rank(log_str, os.path.join(args.save, "log.txt"))
-                total_loss, total_distil_loss, total_time = 0.0, 0.0, 0.0
+                total_loss, total_distil_loss, total_balance_loss, total_time = 0.0, 0.0, 0.0, 0.0
             
             # Checkpointing
             if args.save and args.save_interval and global_step % args.save_interval == 0 and step % args.gradient_accumulation_steps == 0:
