@@ -15,10 +15,10 @@ DISTRIBUTED_ARGS="--nproc_per_node $GPUS_PER_NODE \
 # model
 BASE_PATH=${1-"."}
 CKPT_NAME="sft_init_1_3B"
-CKPT="${BASE_PATH}/results/moe/train/sft/sft_1_3B/e10-bs8-lr1e-05-G1-N2-NN1/sft_init"
+CKPT="${BASE_PATH}/results/moe/train/sfrmoekd/moekd_1_3B/e10-bs4-lr5e-06-G1-N4-NN1-kd0.5-topk16-tlr5e-06/2736"
 # CKPT="huggyllama/llama-7b"
 TEACHER_CKPT_NAME="3_5B-4_16"
-TEACHER_CKPT="${BASE_PATH}/results/moe/train/sfrmoekd/moekd_1_3B/e10-bs4-lr5e-06-G1-N4-NN1-kd0.5-topk16-tlr5e-06/2736"
+TEACHER_CKPT="${BASE_PATH}/results/moe/train/sfrmoekd/moekd_1_3B/e10-bs4-lr5e-06-G1-N4-NN1-kd0.5-topk16-tlr5e-06/2736/teacher"
 # MP_SIZE=4
 # data
 DATA_DIR="${BASE_PATH}/processed_data/dolly/full/moe/"
