@@ -113,4 +113,4 @@ do
     sleep 20
 done
 
-#bash scripts/moe/eval/run_eval.sh . results/moe/train/sfrmoekd/moekd_1_3B/e6-bs4-lr5e-06-G1-N4-NN1-kd0.5-topk${NUM_SELECTS}-tlr${TEACHER_LR}/best_rougeL 15035 llama ${GPUS_PER_NODE}
+bash scripts/moe/eval/run_eval.sh . results/moe/train/sfrmoekd/moekd_1_3B/e6-bs4-lr5e-06-G1-N4-NN1-kd0.5-topk${NUM_SELECTS}-tlr${TEACHER_LR}/best_rougeL 15035 llama ${GPUS_PER_NODE}
