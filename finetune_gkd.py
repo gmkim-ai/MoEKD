@@ -201,30 +201,58 @@ def prepare_dataset(args, tokenizer):
 
 
 def get_distil_loss(args, tokenizer, model, teacher_model, model_batch, no_model_batch, logits, is_teacher=False):
-    with torch.no_grad():
-        teacher_model.eval()
-        teacher_outputs = teacher_model(**model_batch, use_cache=False)
-        teacher_logits = teacher_outputs.logits
-
-    if args.model_parallel:
-        distil_losses = mpu.parallel_soft_cross_entropy_loss(teacher_logits.float(), logits.float()) \
-                        - mpu.parallel_soft_cross_entropy_loss(logits.float(), logits.float())
-        distil_losses = distil_losses.view(-1)
-        loss_mask = no_model_batch["loss_mask"].view(-1)
-        distil_loss = (distil_losses * loss_mask).sum(-1) / loss_mask.sum(-1)
+    if args.num_repeats is not None:
+        distil_loss = 0
+        if args.model_parallel:
+            loss_mask = no_model_batch["loss_mask"].view(-1)
+        else:
+            probs = F.softmax(logits, dim=-1, dtype=torch.float32) #[B, 512, 50257]
+            inf_mask = torch.isinf(logits)
+            logprobs = F.log_softmax(logits, dim=-1, dtype=torch.float32)
+            prod_probs = torch.masked_fill(probs * logprobs, inf_mask, 0) #[B, 512, 50257]
+            mask = (no_model_batch["label"] != -100).int() # [B, 512]
+        for _ in range(args.num_repeats):
+            with torch.no_grad():
+                teacher_model.eval()
+                teacher_outputs = teacher_model(**model_batch, use_cache=False)
+                teacher_logits = teacher_outputs.logits
+            if args.model_parallel:
+                distil_losses = mpu.parallel_soft_cross_entropy_loss(teacher_logits.float(), logits.float()) \
+                                - mpu.parallel_soft_cross_entropy_loss(logits.float(), logits.float())
+                distil_losses = distil_losses.view(-1)
+                distil_loss += (distil_losses * loss_mask).sum(-1) / loss_mask.sum(-1)
+            else:
+                teacher_inf_mask = torch.isinf(teacher_logits)
+                teacher_logprobs = F.log_softmax(teacher_logits, dim=-1, dtype=torch.float32) #[B, 512, 50257]
+                teacher_prod_probs = torch.masked_fill(probs * teacher_logprobs, teacher_inf_mask, 0) #[B, 512, 50257]
+                x = torch.sum(prod_probs - teacher_prod_probs, dim=-1).view(-1) #[B * 512]
+                distil_loss += torch.sum(x * mask.view(-1), dim=0) / torch.sum(mask.view(-1), dim=0)
+        distil_loss /= args.num_repeats
     else:
-        probs = F.softmax(logits, dim=-1, dtype=torch.float32) #[B, 512, 50257]
-        teacher_inf_mask = torch.isinf(teacher_logits)
-        teacher_logprobs = F.log_softmax(teacher_logits, dim=-1, dtype=torch.float32) #[B, 512, 50257]
-        teacher_prod_probs = torch.masked_fill(probs * teacher_logprobs, teacher_inf_mask, 0) #[B, 512, 50257]
+        with torch.no_grad():
+            teacher_model.eval()
+            teacher_outputs = teacher_model(**model_batch, use_cache=False)
+            teacher_logits = teacher_outputs.logits
 
-        inf_mask = torch.isinf(logits)
-        logprobs = F.log_softmax(logits, dim=-1, dtype=torch.float32)
-        prod_probs = torch.masked_fill(probs * logprobs, inf_mask, 0) #[B, 512, 50257]
+        if args.model_parallel:
+            distil_losses = mpu.parallel_soft_cross_entropy_loss(teacher_logits.float(), logits.float()) \
+                            - mpu.parallel_soft_cross_entropy_loss(logits.float(), logits.float())
+            distil_losses = distil_losses.view(-1)
+            loss_mask = no_model_batch["loss_mask"].view(-1)
+            distil_loss = (distil_losses * loss_mask).sum(-1) / loss_mask.sum(-1)
+        else:
+            probs = F.softmax(logits, dim=-1, dtype=torch.float32) #[B, 512, 50257]
+            teacher_inf_mask = torch.isinf(teacher_logits)
+            teacher_logprobs = F.log_softmax(teacher_logits, dim=-1, dtype=torch.float32) #[B, 512, 50257]
+            teacher_prod_probs = torch.masked_fill(probs * teacher_logprobs, teacher_inf_mask, 0) #[B, 512, 50257]
 
-        x = torch.sum(prod_probs - teacher_prod_probs, dim=-1).view(-1) #[B * 512]
-        mask = (no_model_batch["label"] != -100).int() # [B, 512]
-        distil_loss = torch.sum(x * mask.view(-1), dim=0) / torch.sum(mask.view(-1), dim=0)
+            inf_mask = torch.isinf(logits)
+            logprobs = F.log_softmax(logits, dim=-1, dtype=torch.float32)
+            prod_probs = torch.masked_fill(probs * logprobs, inf_mask, 0) #[B, 512, 50257]
+
+            x = torch.sum(prod_probs - teacher_prod_probs, dim=-1).view(-1) #[B * 512]
+            mask = (no_model_batch["label"] != -100).int() # [B, 512]
+            distil_loss = torch.sum(x * mask.view(-1), dim=0) / torch.sum(mask.view(-1), dim=0)
         
     return distil_loss
 
