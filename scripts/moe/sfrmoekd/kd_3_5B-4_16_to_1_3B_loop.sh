@@ -24,7 +24,7 @@ TEACHER_CKPT_NAME="3_5B-4_16"
 DATA_DIR="${BASE_PATH}/processed_data/dolly/full/moe/"
 # hp
 BATCH_SIZE=4
-LR=5e-06
+LR=1e-06
 GRAD_ACC=1
 EVAL_BATCH_SIZE=32
 # length
@@ -36,7 +36,7 @@ SEED=10
 
 # MoE KD
 NUM_SELECTS=16
-TEACHER_LR=5e-06
+TEACHER_LR=1e-06
 
 OPTS=""
 # moekd
@@ -111,7 +111,7 @@ CMD="torchrun ${DISTRIBUTED_ARGS} ${BASE_PATH}/finetune_sfr.py ${OPTS} --save ${
 echo ${CMD}
 echo "PYTHONPATH=${PYTHONPATH}"
 mkdir -p ${SAVE_PATH}
-while ! test -f ./results/moe/train/sfrmoekd/moekd_1_3B/loop/epoch1/e1-bs4-lr5e-06-G1-N4-NN1-kd0.5-topk${NUM_SELECTS}-tlr${TEACHER_LR}/684/pytorch_model.bin
+while ! test -f ./results/moe/train/sfrmoekd/moekd_1_3B/loop/epoch1/e1-bs4-lr1e-06-G1-N4-NN1-kd0.5-topk${NUM_SELECTS}-tlr${TEACHER_LR}/684/pytorch_model.bin
 do
     ${CMD}
     sleep 20
@@ -120,19 +120,19 @@ done
 for epoch in 2 3 4 5 6 7 8 9 10
 do
     last_epoch=$((epoch - 1))
-    CKPT="${BASE_PATH}/results/moe/train/sfrmoekd/moekd_1_3B/loop/epoch${last_epoch}/e1-bs4-lr5e-06-G1-N4-NN1-kd0.5-topk${NUM_SELECTS}-tlr${TEACHER_LR}/684"
-    TEACHER_CKPT="${BASE_PATH}/results/moe/train/sfrmoekd/moekd_1_3B/loop/epoch${last_epoch}/e1-bs4-lr5e-06-G1-N4-NN1-kd0.5-topk${NUM_SELECTS}-tlr${TEACHER_LR}/684/teacher"
+    CKPT="${BASE_PATH}/results/moe/train/sfrmoekd/moekd_1_3B/loop/epoch${last_epoch}/e1-bs4-lr1e-06-G1-N4-NN1-kd0.5-topk${NUM_SELECTS}-tlr${TEACHER_LR}/684"
+    TEACHER_CKPT="${BASE_PATH}/results/moe/train/sfrmoekd/moekd_1_3B/loop/epoch${last_epoch}/e1-bs4-lr1e-06-G1-N4-NN1-kd0.5-topk${NUM_SELECTS}-tlr${TEACHER_LR}/684/teacher"
     SAVE_PATH="${BASE_PATH}/results/moe/train/sfrmoekd/moekd_1_3B/loop/epoch${epoch}"
     CMD="torchrun ${DISTRIBUTED_ARGS} ${BASE_PATH}/finetune_sfr.py ${OPTS} --save ${SAVE_PATH} --model-path ${CKPT} --teacher-model-path ${TEACHER_CKPT} $@"
 
     echo ${CMD}
     echo "PYTHONPATH=${PYTHONPATH}"
     mkdir -p ${SAVE_PATH}
-    while ! test -f ./results/moe/train/sfrmoekd/moekd_1_3B/loop/epoch${epoch}/e1-bs4-lr5e-06-G1-N4-NN1-kd0.5-topk${NUM_SELECTS}-tlr${TEACHER_LR}/684/pytorch_model.bin
+    while ! test -f ./results/moe/train/sfrmoekd/moekd_1_3B/loop/epoch${epoch}/e1-bs4-lr1e-06-G1-N4-NN1-kd0.5-topk${NUM_SELECTS}-tlr${TEACHER_LR}/684/pytorch_model.bin
     do
         ${CMD}
         sleep 20
     done
 done
 
-#bash scripts/moe/eval/run_eval.sh . results/moe/train/sfrmoekd/moekd_1_3B/e10-bs4-lr5e-06-G1-N4-NN1-kd0.5-topk${NUM_SELECTS}-tlr${TEACHER_LR}/best_rougeL 15035 llama ${GPUS_PER_NODE}
+#bash scripts/moe/eval/run_eval.sh . results/moe/train/sfrmoekd/moekd_1_3B/e10-bs4-lr1e-06-G1-N4-NN1-kd0.5-topk${NUM_SELECTS}-tlr${TEACHER_LR}/best_rougeL 15035 llama ${GPUS_PER_NODE}
