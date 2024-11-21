@@ -79,7 +79,7 @@ OPTS+=" --do-valid"
 OPTS+=" --eval-gen"
 OPTS+=" --save-interval -1"
 OPTS+=" --eval-interval -1"
-OPTS+=" --log-interval 4"
+OPTS+=" --log-interval 10"
 OPTS+=" --mid-log-num -1"
 #OPTS+=" --save ${SAVE_PATH}"
 # seed
