@@ -111,7 +111,7 @@ CMD="torchrun ${DISTRIBUTED_ARGS} ${BASE_PATH}/finetune_sfr.py ${OPTS} --save ${
 echo ${CMD}
 echo "PYTHONPATH=${PYTHONPATH}"
 mkdir -p ${SAVE_PATH}
-while ! test -f ./results/moe/train/sfrmoekd/moekd_1_3B/e10-bs4-lr5e-06-G1-N4-NN1-kd0.5-topk${NUM_SELECTS}-tlr${TEACHER_LR}/best_rougeL/log.txt
+while ! test -f ./results/moe/train/sfrmoekd/moekd_1_3B/loop/epoch1/e1-bs4-lr5e-06-G1-N4-NN1-kd0.5-topk${NUM_SELECTS}-tlr${TEACHER_LR}/684/pytorch_model.bin
 do
     ${CMD}
     sleep 20
