@@ -122,6 +122,7 @@ do
     last_epoch=$((epoch - 1))
     CKPT="${BASE_PATH}/results/moe/train/sfrmoekd/moekd_1_3B/loop/epoch${last_epoch}/e1-bs4-lr1e-06-G1-N4-NN1-kd0.5-topk${NUM_SELECTS}-tlr${TEACHER_LR}/684"
     TEACHER_CKPT="${BASE_PATH}/results/moe/train/sfrmoekd/moekd_1_3B/loop/epoch${last_epoch}/e1-bs4-lr1e-06-G1-N4-NN1-kd0.5-topk${NUM_SELECTS}-tlr${TEACHER_LR}/684/teacher"
+    cp ${BASE_PATH}/results/moe/train/sft/sft_3_5B-4_16/e10-bs4-lr1e-05-G1-N4-NN1/best_rougeL/configuration_llama_moe.py ${TEACHER_CKPT}/
     SAVE_PATH="${BASE_PATH}/results/moe/train/sfrmoekd/moekd_1_3B/loop/epoch${epoch}"
     CMD="torchrun ${DISTRIBUTED_ARGS} ${BASE_PATH}/finetune_sfr.py ${OPTS} --save ${SAVE_PATH} --model-path ${CKPT} --teacher-model-path ${TEACHER_CKPT} $@"
 
