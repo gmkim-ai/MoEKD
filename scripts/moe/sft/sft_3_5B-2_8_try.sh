@@ -99,4 +99,4 @@ echo "PYTHONPATH=${PYTHONPATH}"
 mkdir -p ${SAVE_PATH}
 ${CMD}
 
-bash scripts/moe/eval/run_eval.sh . results/moe/train/sft/sft_3_5B-4_16/e10-bs4-lr1e-05-G1-N4-NN1/best_rougeL 15035 moe ${GPUS_PER_NODE}
+#bash scripts/moe/eval/run_eval.sh . results/moe/train/sft/sft_3_5B-4_16/e10-bs4-lr1e-05-G1-N4-NN1/best_rougeL 15035 moe ${GPUS_PER_NODE}
