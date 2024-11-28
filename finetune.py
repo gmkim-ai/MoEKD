@@ -343,6 +343,9 @@ def finetune(args, tokenizer: AutoTokenizer, model: deepspeed.DeepSpeedEngine, o
             else:
                 lm_loss = loss_func(logits.float().view(-1, logits.shape[-1]), no_model_batch["label"].view(-1))
             
+            if outputs.balance_loss is not None and outputs.balance_loss > 0:
+                lm_loss += outputs.balance_loss
+            
             if teacher_model is not None:
                 # if args.type == "moekd":
                 #     distil_loss, gate_logits = get_distil_loss(args, tokenizer, model, teacher_model, model_batch, no_model_batch, logits)
