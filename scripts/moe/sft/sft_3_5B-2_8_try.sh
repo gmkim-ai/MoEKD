@@ -97,6 +97,10 @@ CMD="torchrun ${DISTRIBUTED_ARGS} ${BASE_PATH}/finetune.py ${OPTS} $@"
 echo ${CMD}
 echo "PYTHONPATH=${PYTHONPATH}"
 mkdir -p ${SAVE_PATH}
-${CMD}
+while ! test -f ./results/moe/train/sft/sft_3_5B-2_8/e10-bs4-lr1e-05-G1-N4-NN1/6840/pytorch_model.bin
+do
+    ${CMD}
+    sleep 20
+done
 
 #bash scripts/moe/eval/run_eval.sh . results/moe/train/sft/sft_3_5B-4_16/e10-bs4-lr1e-05-G1-N4-NN1/best_rougeL 15035 moe ${GPUS_PER_NODE}
