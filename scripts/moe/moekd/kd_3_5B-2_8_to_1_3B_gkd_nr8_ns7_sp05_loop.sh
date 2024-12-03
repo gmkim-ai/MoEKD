@@ -17,8 +17,8 @@ BASE_PATH=${1-"."}
 CKPT_NAME="sft_init_1_3B"
 #CKPT="${BASE_PATH}/results/moe/train/sft/sft_1_3B/e10-bs8-lr1e-05-G1-N2-NN1/sft_init"
 # CKPT="huggyllama/llama-7b"
-TEACHER_CKPT_NAME="3_5B-4_16"
-TEACHER_CKPT="${BASE_PATH}/results/moe/train/sft/sft_3_5B-4_16/e10-bs4-lr1e-05-G1-N4-NN1/best_rougeL"
+TEACHER_CKPT_NAME="3_5B-2_8"
+TEACHER_CKPT="${BASE_PATH}/results/moe/train/sft/sft_3_5B-2_8/e10-bs4-lr1e-05-G1-N4-NN1/best_rougeL"
 # MP_SIZE=4
 # data
 DATA_DIR="${BASE_PATH}/processed_data/dolly/full/moe/"
@@ -30,11 +30,22 @@ EVAL_BATCH_SIZE=32
 # length
 MAX_LENGTH=512
 # runtime
-#SAVE_PATH="${BASE_PATH}/results/moe/train/gkd/moekd_1_3B"
+#SAVE_PATH="${BASE_PATH}/results/moe/train/moekd/moekd_1_3B"
 # seed
 SEED=10
 
+# MoE KD
+NUM_SELECTS=7
+NUM_REPEATS=8
+SAMPLING_PROB=0.05
+NEW_NUM_SELECTS=7
+
 OPTS=""
+# moekd
+OPTS+=" --num-selects ${NUM_SELECTS}"
+OPTS+=" --num-repeats ${NUM_REPEATS}"
+OPTS+=" --sampling-prob ${SAMPLING_PROB}"
+OPTS+=" --new-num-selects ${NEW_NUM_SELECTS}"
 # model
 OPTS+=" --base-path ${BASE_PATH}"
 #OPTS+=" --model-path ${CKPT}"
@@ -81,7 +92,7 @@ OPTS+=" --seed ${SEED}"
 OPTS+=" --deepspeed"
 OPTS+=" --deepspeed_config ${BASE_PATH}/configs/deepspeed/ds_config.json"
 # type
-OPTS+=" --type kd"
+OPTS+=" --type moekd"
 # gen
 OPTS+=" --do-sample"
 OPTS+=" --top-k 0"
@@ -97,13 +108,13 @@ export PT_HPU_LAZY_MODE=0
 export OMP_NUM_THREADS=8
 
 CKPT="${BASE_PATH}/results/moe/train/sft/sft_1_3B/e10-bs8-lr1e-05-G1-N2-NN1/sft_init"
-SAVE_PATH="${BASE_PATH}/results/moe/train/gkd/moekd_1_3B/loop/epoch1"
+SAVE_PATH="${BASE_PATH}/results/moe/train/moekd/moekd_1_3B_with_sgo/sft_3_5B-2_8/loop/epoch1"
 CMD="torchrun ${DISTRIBUTED_ARGS} ${BASE_PATH}/finetune_gkd.py ${OPTS} --save ${SAVE_PATH} --model-path ${CKPT} --teacher-model-path ${TEACHER_CKPT} $@"
 
 echo ${CMD}
 echo "PYTHONPATH=${PYTHONPATH}"
 mkdir -p ${SAVE_PATH}
-while ! test -f ./results/moe/train/gkd/moekd_1_3B/loop/epoch1/e1-bs4-lr1e-05-G1-N4-NN1-kd0.5/684/pytorch_model.bin
+while ! test -f ./results/moe/train/moekd/moekd_1_3B_with_sgo/sft_3_5B-2_8/loop/epoch1/e1-bs4-lr1e-05-G1-N4-NN1-kd0.5-topk${NUM_SELECTS}-nr${NUM_REPEATS}-sp${SAMPLING_PROB}-nns${NEW_NUM_SELECTS}/684/pytorch_model.bin
 do
     ${CMD}
     sleep 20
@@ -112,17 +123,17 @@ done
 for epoch in 2 3 4 5 6 7 8 9 10
 do
     last_epoch=$((epoch - 1))
-    CKPT="${BASE_PATH}/results/moe/train/gkd/moekd_1_3B/loop/epoch${last_epoch}/e1-bs4-lr1e-05-G1-N4-NN1-kd0.5/684"
-    SAVE_PATH="${BASE_PATH}/results/moe/train/gkd/moekd_1_3B/loop/epoch${epoch}"
+    CKPT="${BASE_PATH}/results/moe/train/moekd/moekd_1_3B_with_sgo/sft_3_5B-2_8/loop/epoch${last_epoch}/e1-bs4-lr1e-05-G1-N4-NN1-kd0.5-topk${NUM_SELECTS}-nr${NUM_REPEATS}-sp${SAMPLING_PROB}-nns${NEW_NUM_SELECTS}/684"
+    SAVE_PATH="${BASE_PATH}/results/moe/train/moekd/moekd_1_3B_with_sgo/sft_3_5B-2_8/loop/epoch${epoch}"
     CMD="torchrun ${DISTRIBUTED_ARGS} ${BASE_PATH}/finetune_gkd.py ${OPTS} --save ${SAVE_PATH} --model-path ${CKPT} --teacher-model-path ${TEACHER_CKPT} $@"
 
     echo ${CMD}
     echo "PYTHONPATH=${PYTHONPATH}"
     mkdir -p ${SAVE_PATH}
-    while ! test -f ./results/moe/train/gkd/moekd_1_3B/loop/epoch${epoch}/e1-bs4-lr1e-05-G1-N4-NN1-kd0.5/684/pytorch_model.bin
+    while ! test -f ./results/moe/train/moekd/moekd_1_3B_with_sgo/sft_3_5B-2_8/loop/epoch${epoch}/e1-bs4-lr1e-05-G1-N4-NN1-kd0.5-topk${NUM_SELECTS}-nr${NUM_REPEATS}-sp${SAMPLING_PROB}-nns${NEW_NUM_SELECTS}/684/pytorch_model.bin
     do
         ${CMD}
         sleep 20
     done
 done
-#bash scripts/moe/eval/run_eval.sh . results/moe/train/gkd/moekd_1_3B/loop/epoch${epoch}/e1-bs4-lr1e-05-G1-N4-NN1-kd0.5/best_rougeL 15035 llama ${GPUS_PER_NODE}
+#bash scripts/moe/eval/run_eval.sh . results/moe/train/moekd/moekd_1_3B_with_sgo/sft_3_5B-2_8/loop/epoch${epoch}/e1-bs4-lr1e-05-G1-N4-NN1-kd0.5-topk${NUM_SELECTS}-nr${NUM_REPEATS}-sp${SAMPLING_PROB}-nns${NEW_NUM_SELECTS}/best_rougeL 15035 llama ${GPUS_PER_NODE}
