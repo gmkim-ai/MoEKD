@@ -15,5 +15,5 @@ pip3 install accelerate
 pip3 install datasets
 pip3 install sentencepiece
 pip3 install protobuf==3.20.3
-pip3 install peft
+pip3 install peft==0.13.2
 pip3 install -U "huggingface_hub[cli]"
