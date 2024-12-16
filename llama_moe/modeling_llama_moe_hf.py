@@ -927,8 +927,8 @@ class BaseMoELayer(nn.Module):
     def set_num_repeats(self, num_repeats):
         if "num_repeats" not in vars(self.gate):
             raise KeyError(f'{self.gate_type} does not have a key named "num_repeats".')
-        elif num_repeats <= 1:
-            raise ValueError('The value of "num_repeats" must be greater than 1!')
+        elif num_repeats <= 0:
+            raise ValueError('The value of "num_repeats" must be greater than 0!')
         else:
             self.gate.num_repeats = num_repeats
 
