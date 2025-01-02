@@ -108,13 +108,13 @@ export PT_HPU_LAZY_MODE=0
 export OMP_NUM_THREADS=8
 
 CKPT="${BASE_PATH}/results/moe/train/sft/sft_1_3B/e10-bs8-lr1e-05-G1-N2-NN1/sft_init"
-SAVE_PATH="${BASE_PATH}/results/moe/train/moekd/moekd_1_3B_with_sgo/loop/epoch1"
+SAVE_PATH="${BASE_PATH}/results/moe/train/moekd/moekd_1_3B_with_sgo/sft_3_5B-4_16/loop/epoch1"
 CMD="torchrun ${DISTRIBUTED_ARGS} ${BASE_PATH}/finetune_gkd.py ${OPTS} --save ${SAVE_PATH} --model-path ${CKPT} --teacher-model-path ${TEACHER_CKPT} $@"
 
 echo ${CMD}
 echo "PYTHONPATH=${PYTHONPATH}"
 mkdir -p ${SAVE_PATH}
-while ! test -f ./results/moe/train/moekd/moekd_1_3B_with_sgo/loop/epoch1/e1-bs4-lr1e-05-G1-N4-NN1-kd0.5-topk${NUM_SELECTS}-nr${NUM_REPEATS}-sp${SAMPLING_PROB}-nns${NEW_NUM_SELECTS}/684/pytorch_model.bin
+while ! test -f ./results/moe/train/moekd/moekd_1_3B_with_sgo/sft_3_5B-4_16/loop/epoch1/e1-bs4-lr1e-05-G1-N4-NN1-kd0.5-topk${NUM_SELECTS}-nr${NUM_REPEATS}-sp${SAMPLING_PROB}-nns${NEW_NUM_SELECTS}/684/pytorch_model.bin
 do
     ${CMD}
     sleep 20
@@ -123,14 +123,14 @@ done
 for epoch in 2 3 4 5 6 7 8 9 10
 do
     last_epoch=$((epoch - 1))
-    CKPT="${BASE_PATH}/results/moe/train/moekd/moekd_1_3B_with_sgo/loop/epoch${last_epoch}/e1-bs4-lr1e-05-G1-N4-NN1-kd0.5-topk${NUM_SELECTS}-nr${NUM_REPEATS}-sp${SAMPLING_PROB}-nns${NEW_NUM_SELECTS}/684"
-    SAVE_PATH="${BASE_PATH}/results/moe/train/moekd/moekd_1_3B_with_sgo/loop/epoch${epoch}"
+    CKPT="${BASE_PATH}/results/moe/train/moekd/moekd_1_3B_with_sgo/sft_3_5B-4_16/loop/epoch${last_epoch}/e1-bs4-lr1e-05-G1-N4-NN1-kd0.5-topk${NUM_SELECTS}-nr${NUM_REPEATS}-sp${SAMPLING_PROB}-nns${NEW_NUM_SELECTS}/684"
+    SAVE_PATH="${BASE_PATH}/results/moe/train/moekd/moekd_1_3B_with_sgo/sft_3_5B-4_16/loop/epoch${epoch}"
     CMD="torchrun ${DISTRIBUTED_ARGS} ${BASE_PATH}/finetune_gkd.py ${OPTS} --save ${SAVE_PATH} --model-path ${CKPT} --teacher-model-path ${TEACHER_CKPT} $@"
 
     echo ${CMD}
     echo "PYTHONPATH=${PYTHONPATH}"
     mkdir -p ${SAVE_PATH}
-    while ! test -f ./results/moe/train/moekd/moekd_1_3B_with_sgo/loop/epoch${epoch}/e1-bs4-lr1e-05-G1-N4-NN1-kd0.5-topk${NUM_SELECTS}-nr${NUM_REPEATS}-sp${SAMPLING_PROB}-nns${NEW_NUM_SELECTS}/684/pytorch_model.bin
+    while ! test -f ./results/moe/train/moekd/moekd_1_3B_with_sgo/sft_3_5B-4_16/loop/epoch${epoch}/e1-bs4-lr1e-05-G1-N4-NN1-kd0.5-topk${NUM_SELECTS}-nr${NUM_REPEATS}-sp${SAMPLING_PROB}-nns${NEW_NUM_SELECTS}/684/pytorch_model.bin
     do
         ${CMD}
         sleep 20
