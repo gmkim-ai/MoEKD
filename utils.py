@@ -100,7 +100,7 @@ def init_distributed(args):
         device = args.local_rank
     torch.cuda.set_device(device)
 
-    dist.init_process_group(backend="hccl", timeout=timedelta(minutes=300))
+    dist.init_process_group(backend="hccl", timeout=timedelta(minutes=300)) # 가우디 용 hccl
 
 
 def init_distributed_ds(args):
@@ -179,7 +179,7 @@ def get_teacher_model(args, device):
             per_partition_prompt_size = args.prompt_len // mpu.get_model_parallel_world_size()
             index_f = mpu.get_model_parallel_rank() * per_partition_prompt_size
             index_l = index_f + per_partition_prompt_size
-            model.set_prompt_embeddings(torch.nn.Parameter(word_embedding_weights[index_f:index_l]))
+            model.set_prompt_embeddings(torch.nn.Parameter(word_embedding_weights[index_f:index_l])) # prompt_embedding 설정. 
         #print(word_embedding_weights.shape, word_embedding_weights[:4, :3], model.model.decoder.prompt_encoder.weight.shape, model.model.decoder.prompt_encoder.weight[:4, :3])
         
         if mpu.get_data_parallel_rank() == 0:
@@ -241,7 +241,7 @@ def get_teacher_model(args, device):
                         prompt_tuning_init=PromptTuningInit.RANDOM,#PromptTuningInit.TEXT,
                         num_virtual_tokens=args.prompt_len,
                     )
-                    model = get_peft_model(model, peft_config)
+                    model = get_peft_model(model, peft_config) # prompt_embedding 설정. 
 
                     total_virtual_tokens = args.prompt_len * peft_config.num_transformer_submodules
                     tokenizer = AutoTokenizer.from_pretrained(args.teacher_model_path)

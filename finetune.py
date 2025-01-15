@@ -357,9 +357,9 @@ def finetune(args, tokenizer: AutoTokenizer, model: deepspeed.DeepSpeedEngine, o
                 #     torch.save(gate_logits, os.path.join(args.save, "gate_logits", f"{step}.pt"))
                 #     torch.save(no_model_batch["label"], os.path.join(args.save, "no_model_batch", f"{step}.pt"))
                 distil_loss = get_distil_loss(args, tokenizer, model, teacher_model, model_batch, no_model_batch, logits)
-                loss = (1 - args.kd_ratio) * lm_loss + args.kd_ratio * distil_loss
+                loss = (1 - args.kd_ratio) * lm_loss + args.kd_ratio * distil_loss # KD 시에 여기가 됨
             else:
-                loss = lm_loss
+                loss = lm_loss # SFT 시에 여기가 됨.
                 
             model.backward(loss)
             model.step()

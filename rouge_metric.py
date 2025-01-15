@@ -13,7 +13,7 @@ def normalize_answer(s):
     """Lower text and remove punctuation, and extra whitespace."""
 
     def white_space_fix(text):
-        return ' '.join(text.split())
+        return ' '.join(text.split()) # 공백 여러칸 있으면 한 칸으로 바꾸는
 
     def remove_punc(text):
         exclude = set(string.punctuation)
@@ -36,6 +36,9 @@ def rouge(prediction, ground_truth, xlingual=False):
 
 
 def metric_max_over_ground_truths(metric_fn, prediction, ground_truths, xlingual=False):
+    """
+    GT가 여러개인 경우, 각각이랑 매칭해서 가장 metric 값이 높은 것만 추출
+    """
     scores_for_ground_truths = []
     for ground_truth in ground_truths:
         score = metric_fn(prediction, ground_truth, xlingual=xlingual)
@@ -46,6 +49,7 @@ def metric_max_over_ground_truths(metric_fn, prediction, ground_truths, xlingual
 def compute_metrics(predictions, references, xlingual=False):
     # assert len(predictions) == len(references), f"# of predictions {len(predictions)} doesn't match # of references {len(references)}."
     
+    # ASSERT 안하고, 길이 다르면 작은거만 하는 중
     min_length = min(len((predictions)), len(references))
     predictions = predictions[:min_length]
     references = references[:min_length]

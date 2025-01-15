@@ -180,7 +180,7 @@ def get_distil_loss(args, tokenizer, model, teacher_model, model_batch, no_model
             teacher_logits = teacher_logits[:, args.prompt_len:, :]
     if (is_teacher and args.teacher_kld_type == "forward") or (is_base and args.base_kld_type == "forward"):
         if args.model_parallel:
-            distil_losses = mpu.parallel_soft_cross_entropy_loss(logits.float(), teacher_logits.float())
+            distil_losses = mpu.parallel_soft_cross_entropy_loss(logits.float(), teacher_logits.float()) # Forward KL
             distil_losses = distil_losses.view(-1)
             loss_mask = no_model_batch["loss_mask"].view(-1)
             distil_loss = (distil_losses * loss_mask).sum(-1) / loss_mask.sum(-1)
@@ -195,7 +195,7 @@ def get_distil_loss(args, tokenizer, model, teacher_model, model_batch, no_model
     else:
         if args.model_parallel:
             distil_losses = mpu.parallel_soft_cross_entropy_loss(teacher_logits.float(), logits.float()) \
-                            - mpu.parallel_soft_cross_entropy_loss(logits.float(), logits.float())
+                            - mpu.parallel_soft_cross_entropy_loss(logits.float(), logits.float()) # Reverse KL
             distil_losses = distil_losses.view(-1)
             loss_mask = no_model_batch["loss_mask"].view(-1)
             distil_loss = (distil_losses * loss_mask).sum(-1) / loss_mask.sum(-1)
@@ -316,15 +316,15 @@ def finetune(args, tokenizer: AutoTokenizer, model: deepspeed.DeepSpeedEngine, o
                 gen_out = model.generate(
                     **gen_data,
                     generation_config=generation_config,
-                    max_new_tokens=max_new_tokens)
+                    max_new_tokens=max_new_tokens) # max_length로 설정 안하고 그냥 max_new_tokens 직접 넣어서 계산함.
                 full_ids = gen_out.sequences            
                 full_ids = F.pad(
                     full_ids,
-                    (0, args.max_length - full_ids.shape[1]),
+                    (0, args.max_length - full_ids.shape[1]), # 오른쪽에 다시 max_length 만큼 padding. (뒤에 쓰려고)
                     value=tokenizer.pad_token_id,
                 )
                 response_ids = full_ids[:, gen_data["input_ids"].size(1):]
-                response_ids[:, -1] = tokenizer.pad_token_id
+                response_ids[:, -1] = tokenizer.pad_token_id # 맨 오른쪽에는 무조건 pad로 처리
                 
                 s_model_batch = {
                     "input_ids": torch.ones(args.batch_size, args.max_length, dtype=torch.long) * tokenizer.eos_token_id,
@@ -338,35 +338,36 @@ def finetune(args, tokenizer: AutoTokenizer, model: deepspeed.DeepSpeedEngine, o
                 }
                 
                 for i, input_ids_ in enumerate(model_batch['input_ids']):
-                    source_len = int(model_batch['attention_mask'][i].sum() - no_model_batch['loss_mask'][i].sum()) + 1
+                    source_len = int(model_batch['attention_mask'][i].sum() - no_model_batch['loss_mask'][i].sum()) + 1 # loss에 포함 안 되는, 입력 부분 길이
                     input_ids = np.concatenate([np.array(input_ids_[:source_len].cpu()), np.array(response_ids[i][:response_ids[i].tolist().index(tokenizer.pad_token_id) + 1].cpu())], axis=0)
-                    input_ids = input_ids[:args.max_length]
+                    # 데이터의 입력에서 입력 부분만 선택 + 생성된 부분 중 pad가 나오기 전까지 선택
+                    input_ids = input_ids[:args.max_length] # max_length 넘어가면 자름
                     input_len = len(input_ids)
                     s_model_batch["input_ids"][i][:input_len-1] = torch.tensor(input_ids[:-1], dtype=torch.long)
-                    s_model_batch["attention_mask"][i][:input_len-1] = 1.0
+                    s_model_batch["attention_mask"][i][:input_len-1] = 1.0 # 뒤에 쓸 데이터로 바꾸기 위해, 1로 처리
                     if args.model_type in ["gpt2"]:
                         s_model_batch["position_ids"][i][:input_len-1] = torch.arange(0, input_len-1, dtype=torch.long)
-                    s_no_model_batch["label"][i][:input_len-1] = torch.tensor(input_ids[1:], dtype=torch.long)
-                    s_no_model_batch["label"][i][:source_len-1] = -100
+                    s_no_model_batch["label"][i][:input_len-1] = torch.tensor(input_ids[1:], dtype=torch.long) # student의 입출력을 label로
+                    s_no_model_batch["label"][i][:source_len-1] = -100 # student의 입력 부분은 loss에 포함 안 시키기 위해
                     s_no_model_batch["loss_mask"][i][:input_len-1] = 1.0
-                    s_no_model_batch["loss_mask"][i][:source_len-1] = 0
+                    s_no_model_batch["loss_mask"][i][:source_len-1] = 0 # student의 입력 부분은 loss에 포함 안 시키기 위해
             dataset["train"].move_to_device(s_model_batch, s_no_model_batch, gen_data, device)
 
             ### 2. Training Teacher ###
             teacher_model.train()
             outputs = teacher_model(**s_model_batch, use_cache=False)
-            logits = outputs.logits[:, args.prompt_len:, :]
+            logits = outputs.logits[:, args.prompt_len:, :] # (batch,sequence_length,vocab_size) shape에서 prompt_len 이후만 사용
 
             if args.base_coef != 0.0:
                 base_ratio = float(global_step) / args.total_iters
-                base_distil_loss = get_distil_loss(args, tokenizer, teacher_model, teacher_model, s_model_batch, s_no_model_batch, logits, is_base=True)
-                teacher_distil_loss = get_distil_loss(args, tokenizer, teacher_model, model, s_model_batch, s_no_model_batch, logits, is_teacher=True)
-                teacher_loss = (1 - base_ratio) * args.base_coef * base_distil_loss + teacher_distil_loss 
+                base_distil_loss = get_distil_loss(args, tokenizer, teacher_model, teacher_model, s_model_batch, s_no_model_batch, logits, is_base=True) # 논문 상에서, L_{reg}
+                teacher_distil_loss = get_distil_loss(args, tokenizer, teacher_model, model, s_model_batch, s_no_model_batch, logits, is_teacher=True) # 논문 상에서, L_{kd}
+                teacher_loss = (1 - base_ratio) * args.base_coef * base_distil_loss + teacher_distil_loss # base_coef를 1로 설정해서, 논문상 식 (3)과 동일하게.
             else:
                 teacher_distil_loss = get_distil_loss(args, tokenizer, teacher_model, model, s_model_batch, s_no_model_batch, logits, is_teacher=True)
                 teacher_loss = teacher_distil_loss
                 
-            teacher_model.backward(teacher_loss)
+            teacher_model.backward(teacher_loss) # Teacher 모델에 붙었던 Prompt Tuning 용 앞에 부분만 학습
             teacher_model.step()
             
             dist.all_reduce(teacher_loss, dist.ReduceOp.SUM, group=dp_group)
@@ -385,7 +386,7 @@ def finetune(args, tokenizer: AutoTokenizer, model: deepspeed.DeepSpeedEngine, o
             outputs = model(**s_model_batch, use_cache=False)
             logits = outputs.logits
             
-            distil_loss = get_distil_loss(args, tokenizer, model, teacher_model, s_model_batch, s_no_model_batch, logits)
+            distil_loss = get_distil_loss(args, tokenizer, model, teacher_model, s_model_batch, s_no_model_batch, logits) # 일반적인 KD (reverse)
             loss = distil_loss
 
             model.backward(loss)
@@ -551,7 +552,7 @@ def evaluate(args, tokenizer, model, dataset: LMTrainDataset, split, epoch, devi
                     full_ids,
                     (0, args.max_length - full_ids.shape[1]),
                     value=tokenizer.pad_token_id,
-                )
+                ) # eval_gen이 True 일 때 굳이 padding을 해야 하는가?
                 
                 response_ids = full_ids[:, gen_data["input_ids"].size(1):]
                 all_response_ids.append(response_ids)

@@ -2,7 +2,7 @@ export NCCL_DEBUG=""
 # Image: vault.habana.ai/gaudi-docker/1.16.2/ubuntu22.04/habanalabs/pytorch-installer-2.2.2:latest
 # pip install optimum[habana]
 pip3 install git+https://github.com/HabanaAI/DeepSpeed.git@1.17.0
-pip3 install -e transformers/
+pip3 install -e transformers/ # 수정하신 거 있나?
 # pip3 install torch==2.0.1
 # pip3 install deepspeed==0.10.0
 # pip3 install torchvision==0.15.2
