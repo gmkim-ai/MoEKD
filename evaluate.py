@@ -30,6 +30,9 @@ def setup_model(args, ds_config, device):
     model = get_model(args, device)
     # get the optimizer and lr_scheduler
 
+    if args.model_type == "moe" and args.num_selects != "None":
+        model.set_moe_num_selects(args.num_selects)
+
     optimizer, lr_scheduler = None, None
         
     if args.model_type=="qwen" and ds_config['fp16']['enabled']==True:

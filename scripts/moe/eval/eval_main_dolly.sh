@@ -25,8 +25,11 @@ EVAL_BATCH_SIZE=16
 SAVE_PATH="${BASE_PATH}/results/moe/eval_main/"
 TYPE="eval_main"
 
+# MoE KD
+NUM_SELECTS=${5-"None"}
 
 OPTS=""
+OPTS+=" --num-selects ${NUM_SELECTS}"
 # model
 OPTS+=" --base-path ${BASE_PATH}"
 OPTS+=" --model-path ${CKPT}"

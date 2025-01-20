@@ -262,6 +262,9 @@ def get_args():
                 ckpt_name = "_".join(tmp[:-1]) + "/" + tmp[-1]
             else:
                 ckpt_name = "_".join(tmp)
+        
+        if args.model_type == "moe" and args.num_selects != "None":
+            ckpt_name += f"_ns{args.num_selects}"
 
         save_path = os.path.join(
             args.save,

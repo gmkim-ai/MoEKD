@@ -3,6 +3,7 @@ ckpt=${2-"."}
 port=${3-"15031"}
 model_type=${4-"llama"}
 gpu_num=${5-"1"}
+num_selects=${6-"None"}
 
 for data in dolly self_inst vicuna
 do
@@ -10,7 +11,7 @@ do
     do
         while ! test -f ./results/moe/eval_main/${data}-512/${ckpt//"/"/"_"}/${seed}/preds.txt
         do
-            bash ${base_path}/scripts/moe/eval/eval_main_${data}.sh ${base_path} ${port} ${gpu_num} ${ckpt} --model-type ${model_type} --seed $seed  --eval-batch-size 64
+            bash ${base_path}/scripts/moe/eval/eval_main_${data}.sh ${base_path} ${port} ${gpu_num} ${ckpt} ${num_selects} --model-type ${model_type} --seed $seed  --eval-batch-size 64
             sleep 20
         done
     done
@@ -22,7 +23,7 @@ do
     do
         while ! test -f ./results/moe/eval_main/${data}_11_-512/${ckpt//"/"/"_"}/${seed}/preds.txt
         do
-            bash ${base_path}/scripts/moe/eval/eval_main_${data}.sh ${base_path} ${port} ${gpu_num} ${ckpt} --model-type ${model_type} --seed $seed  --eval-batch-size 64
+            bash ${base_path}/scripts/moe/eval/eval_main_${data}.sh ${base_path} ${port} ${gpu_num} ${ckpt} ${num_selects} --model-type ${model_type} --seed $seed  --eval-batch-size 64
             sleep 20
         done
     done
