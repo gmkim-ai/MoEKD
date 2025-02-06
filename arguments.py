@@ -216,7 +216,7 @@ def add_prompt_args(parser: argparse.ArgumentParser):
 def add_moe_args(parser: argparse.ArgumentParser):
     group = parser.add_argument_group('moekd', 'moekd configurations')
     
-    group.add_argument("--num-selects", type=int, default=None)
+    group.add_argument("--num-selects", type=str, default="None")
     group.add_argument("--moe-top-p", type=float, default=None)
     group.add_argument("--num-repeats", type=int, default=None)
     group.add_argument("--sampling-prob", type=float, default=None)
@@ -295,6 +295,10 @@ def get_args():
         )
         args.save = save_path
     elif args.type == "moekd":
+        if args.num_selects == "None":
+            args.num_selects = None
+        else:
+            args.num_selects = int(args.num_selects)
         save_path = os.path.join(
             args.save,
             (f"{args.ckpt_name}" + f"-{args.peft_name}" if args.peft_name is not None else "" + \
