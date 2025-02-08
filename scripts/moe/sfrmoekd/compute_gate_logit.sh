@@ -104,7 +104,7 @@ CMD="torchrun ${DISTRIBUTED_ARGS} ${BASE_PATH}/finetune_temp.py ${OPTS} $@"
 
 echo ${CMD}
 echo "PYTHONPATH=${PYTHONPATH}"
-mkdir -p ${SAVE_PATH}
+#mkdir -p ${SAVE_PATH}
 ${CMD}
 # while ! test -f ./results/moe/train/moekd/moekd_1_3B/e1-bs4-lr1e-05-G1-N4-NN1-kd0.5/best_rougeL/log.txt
 # do
