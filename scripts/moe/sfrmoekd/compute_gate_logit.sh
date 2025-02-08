@@ -18,7 +18,7 @@ CKPT_NAME="sft_init_1_3B"
 CKPT="${BASE_PATH}/results/moe/train/sft/sft_1_3B/e10-bs8-lr1e-05-G1-N2-NN1/sft_init"
 # CKPT="huggyllama/llama-7b"
 TEACHER_CKPT_NAME="sft_3_5B-4_16"
-TEACHER_CKPT="${BASE_PATH}/results/moe/train/sfrmoekd/moekd_1_3B/sft_3_5B-4_16/loop/epoch10/e1-bs4-lr1e-06-G1-N4-NN1-kd0.5-topk16-tlr1e-06/best_rougeL"
+TEACHER_CKPT="${BASE_PATH}/results/moe/train/sfrmoekd/moekd_1_3B/sft_3_5B-4_16/loop/epoch10/e1-bs4-lr1e-06-G1-N4-NN1-kd0.5-topk16-tlr1e-06/best_rougeL/teacher"
 # MP_SIZE=4
 # data
 DATA_DIR="${BASE_PATH}/processed_data/dolly/full/moe/"
