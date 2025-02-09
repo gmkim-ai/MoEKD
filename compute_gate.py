@@ -8,7 +8,8 @@ def main():
     parser.add_argument('--gate', default=None, help='path to model log.txt')
     parser.add_argument('--label', default=None, help='metric type')
     args = parser.parse_args()
-
+    print("gate:", args.gate)
+    print("label:", args.label)
     gate_files = [name for name in os.listdir(args.gate) if os.path.isfile(os.path.join(args.gate, name))]
     label_files = [name for name in os.listdir(args.label) if os.path.isfile(os.path.join(args.label, name))]
     assert len(gate_files) == len(label_files)
