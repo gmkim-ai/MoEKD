@@ -10,6 +10,7 @@ def main():
     parser.add_argument('--label-orig', default=None, help='metric type')
     parser.add_argument('--gate-sar', default=None, help='path to model log.txt')
     parser.add_argument('--label-sar', default=None, help='metric type')
+    parser.add_argument('--model-size', default=None, help='model size')
     args = parser.parse_args()
     print("original gate:", args.gate_orig)
     print("original label:", args.label_orig)
@@ -25,9 +26,8 @@ def main():
     kl_div = nn.KLDivLoss(reduction='none')
     temp_logits = torch.load(os.path.join(args.gate_orig, "1.pt"), map_location=torch.device('cpu'))
     layer_num = len(temp_logits)
-    torch.set_printoptions(precision=6)
-    with open('SAR_gate_analysis.csv', 'w') as f:
-        f.write(f"Layer\tmean\tmax\tmin\tmax_top_logits_orig\tmax_top_logits_sar\tmin_top_logits_orig\tmin_top_logits_sar\tnegative_kl_div\ttotal_tokens\n")
+    torch.set_printoptions(precision=5)
+    print(f"Layer\tmean\tmax\tmin\tmax_top_logits_orig\tmax_top_logits_sar\tmin_top_logits_orig\tmin_top_logits_sar\tnegative_kl_div\ttotal_tokens")
 
     for layer_idx in range(layer_num):
         layer_kl_div = []
@@ -66,23 +66,24 @@ def main():
         mean_kl_loss = layer_kl_div.mean(0)
         max_kl_loss = layer_kl_div.max(0).values
         min_kl_loss = layer_kl_div.min(0).values
-        print(f"Layer {layer_idx+1} mean KL divergence: {mean_kl_loss}")
-        print(f"Layer {layer_idx+1} max KL divergence: {max_kl_loss}")
-        print(f"Layer {layer_idx+1} min KL divergence: {min_kl_loss}")
-        print(f"Layer {layer_idx+1} max top logits orig: {layer_top_logits_orig[layer_kl_div.max(0).indices]}")
-        print(f"Layer {layer_idx+1} max top logits sar: {layer_top_logits_sar[layer_kl_div.max(0).indices]}")
-        print(f"Layer {layer_idx+1} min top logits orig: {layer_top_logits_orig[layer_kl_div.min(0).indices]}")
-        print(f"Layer {layer_idx+1} min top logits sar: {layer_top_logits_sar[layer_kl_div.min(0).indices]}")
-        # print(f"Layer {layer_idx+1} min top logits orig sum : {layer_top_logits_orig[layer_kl_div.min(0).indices].sum()}")
-        # print(f"Layer {layer_idx+1} min top logits sar sum : {layer_top_logits_sar[layer_kl_div.min(0).indices].sum()}")
-        print(f"Total negative KL div count: {negative_kl_div} / Total tokens: {len(layer_kl_div)}")
-        #print("---------------------------------------------")
+        # print(f"Layer {layer_idx+1} mean KL divergence: {mean_kl_loss}")
+        # print(f"Layer {layer_idx+1} max KL divergence: {max_kl_loss}")
+        # print(f"Layer {layer_idx+1} min KL divergence: {min_kl_loss}")
+        # print(f"Layer {layer_idx+1} max top logits orig: {layer_top_logits_orig[layer_kl_div.max(0).indices]}")
+        # print(f"Layer {layer_idx+1} max top logits sar: {layer_top_logits_sar[layer_kl_div.max(0).indices]}")
+        # print(f"Layer {layer_idx+1} min top logits orig: {layer_top_logits_orig[layer_kl_div.min(0).indices]}")
+        # print(f"Layer {layer_idx+1} min top logits sar: {layer_top_logits_sar[layer_kl_div.min(0).indices]}")
+        # # print(f"Layer {layer_idx+1} min top logits orig sum : {layer_top_logits_orig[layer_kl_div.min(0).indices].sum()}")
+        # # print(f"Layer {layer_idx+1} min top logits sar sum : {layer_top_logits_sar[layer_kl_div.min(0).indices].sum()}")
+        # print(f"Total negative KL div count: {negative_kl_div} / Total tokens: {len(layer_kl_div)}")
+        # #print("---------------------------------------------")
+        print(f"{layer_idx+1}\t{mean_kl_loss}\t{max_kl_loss}\t{min_kl_loss}\t{layer_top_logits_orig[layer_kl_div.max(0).indices].tolist()}\t{layer_top_logits_sar[layer_kl_div.max(0).indices].tolist()}\t{layer_top_logits_orig[layer_kl_div.min(0).indices].tolist()}\t{layer_top_logits_sar[layer_kl_div.min(0).indices].tolist()}\t{negative_kl_div}\t{len(layer_kl_div)}")
 
         # File writing these values
         # csv file, each row is a layer, each column is a {Layer, mean, max, min, max_top_logits_orig, max_top_logits_sar, min_top_logits_orig, min_top_logits_sar, negative_kl_div, total_tokens}
         # indent each column with a tab
-        with open('SAR_gate_analysis.csv', 'a') as f:        
-            f.write(f"{layer_idx+1}\t{mean_kl_loss}\t{max_kl_loss}\t{min_kl_loss}\t{layer_top_logits_orig[layer_kl_div.max(0).indices].tolist()}\t{layer_top_logits_sar[layer_kl_div.max(0).indices].tolist()}\t{layer_top_logits_orig[layer_kl_div.min(0).indices].tolist()}\t{layer_top_logits_sar[layer_kl_div.min(0).indices].tolist()}\t{negative_kl_div}\t{len(layer_kl_div)}\n")
+        with open(f"SAR_kl_div_values_{args.model_size}.csv", 'a') as f:        
+            f.write(f"{layer_idx+1}\t{layer_kl_div.tolist()}\n")
 
 if __name__ == "__main__":
     main()
