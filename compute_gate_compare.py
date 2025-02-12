@@ -69,11 +69,7 @@ def main():
         print(f"Layer {layer_idx+1} mean KL divergence: {mean_kl_loss}")
         print(f"Layer {layer_idx+1} max KL divergence: {max_kl_loss}")
         print(f"Layer {layer_idx+1} min KL divergence: {min_kl_loss}")
-        import pdb
-        pdb.set_trace()
-        max_top_logits_orig = layer_top_logits_orig[layer_kl_div.max(0).indices].values()
-        max_top_logits_orig = ",".join(max_top_logits_orig)
-        print(f"Layer {layer_idx+1} max top logits orig: {max_top_logits_orig}")
+        print(f"Layer {layer_idx+1} max top logits orig: {layer_top_logits_orig[layer_kl_div.max(0).indices]}")
         print(f"Layer {layer_idx+1} max top logits sar: {layer_top_logits_sar[layer_kl_div.max(0).indices]}")
         print(f"Layer {layer_idx+1} min top logits orig: {layer_top_logits_orig[layer_kl_div.min(0).indices]}")
         print(f"Layer {layer_idx+1} min top logits sar: {layer_top_logits_sar[layer_kl_div.min(0).indices]}")
@@ -86,7 +82,7 @@ def main():
         # csv file, each row is a layer, each column is a {Layer, mean, max, min, max_top_logits_orig, max_top_logits_sar, min_top_logits_orig, min_top_logits_sar, negative_kl_div, total_tokens}
         # indent each column with a tab
         with open('SAR_gate_analysis.csv', 'a') as f:        
-            f.write(f"{layer_idx+1}\t{mean_kl_loss}\t{max_kl_loss}\t{min_kl_loss}\t{layer_top_logits_orig[layer_kl_div.max(0).indices]}\t{layer_top_logits_sar[layer_kl_div.max(0).indices]}\t{layer_top_logits_orig[layer_kl_div.min(0).indices]}\t{layer_top_logits_sar[layer_kl_div.min(0).indices]}\t{negative_kl_div}\t{len(layer_kl_div)}\n")
+            f.write(f"{layer_idx+1}\t{mean_kl_loss}\t{max_kl_loss}\t{min_kl_loss}\t{layer_top_logits_orig[layer_kl_div.max(0).indices].tolist()}\t{layer_top_logits_sar[layer_kl_div.max(0).indices].tolist()}\t{layer_top_logits_orig[layer_kl_div.min(0).indices].tolist()}\t{layer_top_logits_sar[layer_kl_div.min(0).indices].tolist()}\t{negative_kl_div}\t{len(layer_kl_div)}\n")
 
 if __name__ == "__main__":
     main()
