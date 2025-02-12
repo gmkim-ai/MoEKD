@@ -79,6 +79,8 @@ def main():
         # #print("---------------------------------------------")
         print(f"{layer_idx+1}\t{mean_kl_loss}\t{max_kl_loss}\t{min_kl_loss}\t{layer_top_logits_orig[layer_kl_div.max(0).indices].tolist()}\t{layer_top_logits_sar[layer_kl_div.max(0).indices].tolist()}\t{layer_top_logits_orig[layer_kl_div.min(0).indices].tolist()}\t{layer_top_logits_sar[layer_kl_div.min(0).indices].tolist()}\t{negative_kl_div}\t{len(layer_kl_div)}")
 
+        import pdb
+        pdb.set_trace()
         # File writing these values
         # csv file, each row is a layer, each column is a {Layer, mean, max, min, max_top_logits_orig, max_top_logits_sar, min_top_logits_orig, min_top_logits_sar, negative_kl_div, total_tokens}
         # indent each column with a tab
