@@ -1,0 +1,13 @@
+checkpoints
+results
+processed_data
+data
+*/__pycache__/
+.bash_history
+.cache/
+.git-credentials
+__pycache__/
+data.tar
+processed_data.tar
+hl-smi_log.txt
+*/__pycache__/*
