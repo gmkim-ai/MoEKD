@@ -22,13 +22,12 @@ def main():
     assert len(gate_files_orig) == len(label_files_orig)
     assert len(gate_files_sar) == len(label_files_sar)
 
-    #kl_div = nn.KLDivLoss(reduction='none')
+    kl_div = nn.KLDivLoss(reduction='none')
     temp_logits = torch.load(os.path.join(args.gate_orig, "1.pt"), map_location=torch.device('cpu'))
     layer_num = len(temp_logits)
 
     for layer_idx in range(layer_num):
-        layer_top_logits_orig = []
-        layer_top_logits_sar = []
+        layer_kl_div = []
         for idx in range(len(gate_files_orig)):
             gate_logits_orig = torch.load(os.path.join(args.gate_orig, f"{idx+1}.pt"), map_location=torch.device('cpu'))
             gate_logits_sar = torch.load(os.path.join(args.gate_sar, f"{idx+1}.pt"), map_location=torch.device('cpu'))
@@ -37,27 +36,28 @@ def main():
             gate_logit_orig = gate_logits_orig[layer_idx]
             gate_logit_orig = F.softmax(gate_logit_orig.to(torch.float32), dim=1)
             gate_logit_sar = gate_logits_sar[layer_idx]
-            gate_logit_sar = F.softmax(gate_logit_sar.to(torch.float32), dim=1)
+            gate_logit_sar = F.log_softmax(gate_logit_sar.to(torch.float32), dim=1)
 
             #top_logits, top_indices = gate_logit.topk(gate_logit.shape[-1], dim=1)
             valid_top_logits_orig = gate_logit_orig[(label != -100).nonzero()].squeeze()  # (response_part_length, # experts)
             valid_top_logits_sar = gate_logit_sar[(label != -100).nonzero()].squeeze()
 
+            # Compute the KL divergence between the two distributions
+            kl_div_loss = kl_div(valid_top_logits_sar, valid_top_logits_orig).sum(-1)
             
-
             import pdb
             pdb.set_trace()
-
             # stack valid_top_logits to layer_top_logits
-            layer_top_logits_orig.append(valid_top_logits_orig)
-            layer_top_logits_sar.append(valid_top_logits_sar)
-        layer_top_logits_orig = torch.cat(layer_top_logits_orig, dim=0)
-        layer_top_logits_sar = torch.cat(layer_top_logits_sar, dim=0)
+            layer_kl_div.append(kl_div_loss)
+          
+        layer_kl_div = torch.cat(layer_kl_div, dim=0)
 
-        # Compute the KL divergence between the two distributions
-        
-        kl_loss = kl_div(layer_top_logits_sar, layer_top_logits_orig)
-        print(f"Layer {layer_idx+1} KL divergence: {kl_loss}")
+        mean_kl_loss = layer_kl_div.mean(0)
+        max_kl_loss = layer_kl_div.max(0)
+        min_kl_loss = layer_kl_div.min(0)
+        print(f"Layer {layer_idx+1} mean KL divergence: {mean_kl_loss}")
+        print(f"Layer {layer_idx+1} max KL divergence: {max_kl_loss}")
+        print(f"Layer {layer_idx+1} min KL divergence: {min_kl_loss}")
 
 if __name__ == "__main__":
     main()
