@@ -28,7 +28,7 @@ def main():
     layer_num = len(temp_logits)
     torch.set_printoptions(precision=5)
     with open(f"SAR_kl_div_analysis_{args.model_size}.csv", "w") as f:
-        f.write(f"Layer\tmean\tmax\tmin\tmax_top_logits_orig\tmax_top_logits_sar\tmin_top_logits_orig\tmin_top_logits_sar\tnegative_kl_div\ttotal_tokens\n")
+        f.write(f"Layer,mean,max,min,max_top_logits_orig,max_top_logits_sar,min_top_logits_orig,min_top_logits_sar,negative_kl_div,total_tokens\n")
 
     for layer_idx in range(layer_num):
         layer_kl_div = []
@@ -82,16 +82,25 @@ def main():
         # File writing these values
         # csv file, each row is a layer, each column is a {Layer, mean, max, min, max_top_logits_orig, max_top_logits_sar, min_top_logits_orig, min_top_logits_sar, negative_kl_div, total_tokens}
         # indent each column with a tab
-        
-        # layer_kl_div = layer_kl_div.tolist()
-        # with open(f"SAR_kl_div_values_{args.model_size}.csv", 'a') as f: 
-        #     f.write(f"{layer_idx+1}")
-        #     for token_idx in range(len(layer_kl_div)):
-        #         f.write(f",{layer_kl_div[token_idx]:.4e}")
-        #     f.write("\n")
+
+        layer_kl_div = layer_kl_div.tolist()
+        with open(f"SAR_kl_div_values_{args.model_size}.csv", 'a') as f: 
+            f.write(f"{layer_idx+1}")
+            for token_idx in range(len(layer_kl_div)):
+                f.write(f",{layer_kl_div[token_idx]:.4e}")
+            f.write("\n")
         
         with open(f"SAR_kl_div_analysis_{args.model_size}.csv", "a") as f:
-            f.write(f"{layer_idx+1}\t{mean_kl_loss}\t{max_kl_loss}\t{min_kl_loss}\t{layer_top_logits_orig[layer_kl_div.max(0).indices].tolist()}\t{layer_top_logits_sar[layer_kl_div.max(0).indices].tolist()}\t{layer_top_logits_orig[layer_kl_div.min(0).indices].tolist()}\t{layer_top_logits_sar[layer_kl_div.min(0).indices].tolist()}\t{negative_kl_div}\t{len(layer_kl_div)}\n")
+            f.write(f"{layer_idx+1},{mean_kl_loss},{max_kl_loss},{min_kl_loss},")
+            for token_idx in range(len(layer_top_logits_orig[layer_kl_div.max(0).indices].tolist())):
+                f.write(f"{layer_top_logits_orig[layer_kl_div.max(0).indices].tolist()[token_idx]},")
+            for token_idx in range(len(layer_top_logits_sar[layer_kl_div.max(0).indices].tolist())):
+                f.write(f"{layer_top_logits_sar[layer_kl_div.max(0).indices].tolist()[token_idx]},")
+            for token_idx in range(len(layer_top_logits_orig[layer_kl_div.min(0).indices].tolist())):
+                f.write(f"{layer_top_logits_orig[layer_kl_div.min(0).indices].tolist()[token_idx]},")
+            for token_idx in range(len(layer_top_logits_sar[layer_kl_div.min(0).indices].tolist())):
+                f.write(f"{layer_top_logits_sar[layer_kl_div.min(0).indices].tolist()[token_idx]},")
+            f.write(f"{negative_kl_div},{len(layer_kl_div)}\n")
         
         del layer_kl_div, layer_top_logits_orig, layer_top_logits_sar
 
