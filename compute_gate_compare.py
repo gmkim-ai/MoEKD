@@ -25,6 +25,7 @@ def main():
     kl_div = nn.KLDivLoss(reduction='none')
     temp_logits = torch.load(os.path.join(args.gate_orig, "1.pt"), map_location=torch.device('cpu'))
     layer_num = len(temp_logits)
+    torch.set_printoptions(precision=6)
     with open('SAR_gate_analysis.csv', 'w') as f:
         f.write(f"Layer\tmean\tmax\tmin\tmax_top_logits_orig\tmax_top_logits_sar\tmin_top_logits_orig\tmin_top_logits_sar\tnegative_kl_div\ttotal_tokens\n")
 
@@ -68,7 +69,9 @@ def main():
         print(f"Layer {layer_idx+1} mean KL divergence: {mean_kl_loss}")
         print(f"Layer {layer_idx+1} max KL divergence: {max_kl_loss}")
         print(f"Layer {layer_idx+1} min KL divergence: {min_kl_loss}")
-        print(f"Layer {layer_idx+1} max top logits orig: {",".join(layer_top_logits_orig[layer_kl_div.max(0).indices])}")
+        max_top_logits_orig = layer_top_logits_orig[layer_kl_div.max(0).indices].values()
+        max_top_logits_orig = ",".join(max_top_logits_orig)
+        print(f"Layer {layer_idx+1} max top logits orig: {max_top_logits_orig}")
         print(f"Layer {layer_idx+1} max top logits sar: {layer_top_logits_sar[layer_kl_div.max(0).indices]}")
         print(f"Layer {layer_idx+1} min top logits orig: {layer_top_logits_orig[layer_kl_div.min(0).indices]}")
         print(f"Layer {layer_idx+1} min top logits sar: {layer_top_logits_sar[layer_kl_div.min(0).indices]}")
