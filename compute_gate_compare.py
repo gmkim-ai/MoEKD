@@ -63,7 +63,13 @@ def main():
         print(f"Layer {layer_idx+1} min KL divergence: {min_kl_loss}")
         print(f"Layer {layer_idx+1} max top logits orig: {layer_top_logits_orig[layer_kl_div.max(0).indices]}")
         print(f"Layer {layer_idx+1} max top logits sar: {layer_top_logits_sar[layer_kl_div.max(0).indices]}")
+        print(f"Layer {layer_idx+1} min top logits orig: {layer_top_logits_orig[layer_kl_div.min(0).indices]}")
+        print(f"Layer {layer_idx+1} min top logits sar: {layer_top_logits_sar[layer_kl_div.min(0).indices]}")
+        print(f"Layer {layer_idx+1} min top logits orig sum : {layer_top_logits_orig[layer_kl_div.min(0).indices].sum()}")
+        print(f"Layer {layer_idx+1} min top logits sar sum : {layer_top_logits_sar[layer_kl_div.min(0).indices].sum()}")
         print("---------------------------------------------")
+
+        
 
 if __name__ == "__main__":
     main()
