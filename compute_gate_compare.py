@@ -18,12 +18,11 @@ def main():
     label_files_orig = [name for name in os.listdir(args.label_orig) if os.path.isfile(os.path.join(args.label_orig, name))]
     gate_files_sar = [name for name in os.listdir(args.gate_sar) if os.path.isfile(os.path.join(args.gate_sar, name))]
     label_files_sar = [name for name in os.listdir(args.label_sar) if os.path.isfile(os.path.join(args.label_sar, name))]
-    #assert len(gate_files_orig) == len(label_files_orig)
 
     import pdb
     pdb.set_trace()
     softmax = nn.Softmax(1)
-    temp_logits = torch.load(os.path.join(args.gate, "1.pt"))
+    temp_logits = torch.load(os.path.join(args.gate_orig, "1.pt"), map_location=torch.device('cpu'))
     layer_num = len(temp_logits)
 
     for layer_idx in range(layer_num):

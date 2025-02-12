@@ -14,14 +14,14 @@ def main():
     label_files = [name for name in os.listdir(args.label) if os.path.isfile(os.path.join(args.label, name))]
     assert len(gate_files) == len(label_files)
     softmax = nn.Softmax(1)
-    temp_logits = torch.load(os.path.join(args.gate, "1.pt"))
+    temp_logits = torch.load(os.path.join(args.gate, "1.pt"), map_location=torch.device('cpu'))
     layer_num = len(temp_logits)
 
     for layer_idx in range(layer_num):
         layer_top_logits = []
         for idx in range(len(gate_files)):
-            gate_logits = torch.load(os.path.join(args.gate, f"{idx+1}.pt"))
-            label = torch.load(os.path.join(args.label, f"{idx+1}.pt")).view(-1)
+            gate_logits = torch.load(os.path.join(args.gate, f"{idx+1}.pt"), map_location=torch.device('cpu'))
+            label = torch.load(os.path.join(args.label, f"{idx+1}.pt"), map_location=torch.device('cpu')).view(-1)
 
             gate_logit = gate_logits[layer_idx]
             gate_logit = softmax(gate_logit.to(torch.float32))
