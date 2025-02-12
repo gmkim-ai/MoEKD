@@ -30,6 +30,7 @@ def main():
         layer_kl_div = []
         layer_top_logits_orig = []
         layer_top_logits_sar = []
+        negative_kl_div = 0
         for idx in range(len(gate_files_orig)):
             gate_logits_orig = torch.load(os.path.join(args.gate_orig, f"{idx+1}.pt"), map_location=torch.device('cpu'))
             gate_logits_sar = torch.load(os.path.join(args.gate_sar, f"{idx+1}.pt"), map_location=torch.device('cpu'))
@@ -46,6 +47,8 @@ def main():
 
             # Compute the KL divergence between the two distributions
             kl_div_loss = kl_div(valid_top_logits_sar.log(), valid_top_logits_orig).sum(-1)
+            import pdb
+            pdb.set_trace()
             # stack valid_top_logits to layer_top_logits
             layer_kl_div.append(kl_div_loss)
             layer_top_logits_orig.append(valid_top_logits_orig)
@@ -67,8 +70,8 @@ def main():
         print(f"Layer {layer_idx+1} min top logits sar: {layer_top_logits_sar[layer_kl_div.min(0).indices]}")
         print(f"Layer {layer_idx+1} min top logits orig sum : {layer_top_logits_orig[layer_kl_div.min(0).indices].sum()}")
         print(f"Layer {layer_idx+1} min top logits sar sum : {layer_top_logits_sar[layer_kl_div.min(0).indices].sum()}")
+        print(f"")
         print("---------------------------------------------")
-
         
 
 if __name__ == "__main__":
