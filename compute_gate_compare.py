@@ -88,7 +88,7 @@ def main():
 
         # Plotting the histogram
         plt.xscale('log')
-        bins = 10**np.array([-9.0, -8.8, -8.6, -8.4, -8.2, -8.0, -7.8, -7.6, -7.4, -7.2, -7.0, -6.8, -6.6, -6.4, -6.2, -6.0]) 
+        bins = 10**np.arange(-9.0,-0.0,0.1)
         plt.hist(layer_kl_div,bins=bins)
         plt.savefig(f"SAR_figures/{args.model_size}_{layer_idx+1}.png", dpi=600)
         plt.close()
