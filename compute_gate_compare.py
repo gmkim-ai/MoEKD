@@ -83,6 +83,9 @@ def main():
         # csv file, each row is a layer, each column is a {Layer, mean, max, min, max_top_logits_orig, max_top_logits_sar, min_top_logits_orig, min_top_logits_sar, negative_kl_div, total_tokens}
         # indent each column with a tab
 
+        import pdb
+        pdb.set_trace()
+
         layer_kl_div = layer_kl_div.tolist()
         with open(f"SAR_kl_div_values_{args.model_size}.csv", 'a') as f: 
             f.write(f"{layer_idx+1}")
