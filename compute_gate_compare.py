@@ -44,9 +44,6 @@ def main():
 
             # Compute the KL divergence between the two distributions
             kl_div_loss = kl_div(valid_top_logits_sar, valid_top_logits_orig).sum(-1)
-            
-            import pdb
-            pdb.set_trace()
             # stack valid_top_logits to layer_top_logits
             layer_kl_div.append(kl_div_loss)
           
@@ -58,6 +55,7 @@ def main():
         print(f"Layer {layer_idx+1} mean KL divergence: {mean_kl_loss}")
         print(f"Layer {layer_idx+1} max KL divergence: {max_kl_loss}")
         print(f"Layer {layer_idx+1} min KL divergence: {min_kl_loss}")
+        print("---------------------------------------------")
 
 if __name__ == "__main__":
     main()
