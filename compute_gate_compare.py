@@ -36,9 +36,9 @@ def main():
             label = torch.load(os.path.join(args.label_orig, f"{idx+1}.pt"), map_location=torch.device('cpu')).view(-1)
 
             gate_logit_orig = gate_logits_orig[layer_idx]
-            gate_logit_orig = F.softmax(gate_logit_orig.to(torch.float32), dim=1)
+            gate_logit_orig = F.softmax(gate_logit_orig.to(torch.float64), dim=1)
             gate_logit_sar = gate_logits_sar[layer_idx]
-            gate_logit_sar = F.softmax(gate_logit_sar.to(torch.float32), dim=1)
+            gate_logit_sar = F.softmax(gate_logit_sar.to(torch.float64), dim=1)
 
             #top_logits, top_indices = gate_logit.topk(gate_logit.shape[-1], dim=1)
             valid_top_logits_orig = gate_logit_orig[(label != -100).nonzero()].squeeze()  # (response_part_length, # experts)
