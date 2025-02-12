@@ -52,6 +52,8 @@ def main():
             layer_top_logits_sar.append(valid_top_logits_sar)
           
         layer_kl_div = torch.cat(layer_kl_div, dim=0)
+        layer_top_logits_orig = torch.cat(layer_top_logits_orig, dim=0)
+        layer_top_logits_sar = torch.cat(layer_top_logits_sar, dim=0)
 
         mean_kl_loss = layer_kl_div.mean(0)
         max_kl_loss = layer_kl_div.max(0).values
